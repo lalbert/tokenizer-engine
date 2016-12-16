@@ -4,14 +4,26 @@ namespace TokenizerEngine\Tokenizer;
 
 class StandardTokenizer implements TokenizerInterface
 {
+    private $maxTokenLength;
+
+    public function __construct($maxTokenLength = 255)
+    {
+        $this->maxTokenLength = $maxTokenLength;
+    }
+
     public function tokenize($data)
     {
-        $return = [];
+        $_tokens = [];
 
         foreach ((array) $data as $string) {
-            $return = array_merge($return, preg_split('/[\s-]+/i', $string, -1, PREG_SPLIT_NO_EMPTY));
+            $_tokens = array_merge($_tokens, preg_split('/[\s-]+/i', $string, -1, PREG_SPLIT_NO_EMPTY));
         }
 
-        return $return;
+        $tokens = [];
+        foreach ($_tokens as $token) {
+            $tokens = array_merge($tokens, str_split($token, $this->maxTokenLength));
+        }
+
+        return $tokens;
     }
 }
