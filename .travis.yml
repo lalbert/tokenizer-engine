@@ -1,0 +1,27 @@
+language: php
+
+php:
+  - 5.3
+  - 5.4
+  - 5.5
+  - 5.6
+  - 7.0
+  - 7.1
+  - hhvm
+  - nightly
+    
+## Cache composer bits
+cache:
+  directories:
+    - $HOME/.composer/cache
+    
+before_script:
+  # Set up Composer
+  - composer self-update || true
+  - composer install --prefer-source
+
+script:
+  - php ./vendor/bin/phpunit
+
+after_script:
+  - php ./vendor/bin/codacycoverage phpunit ./tests/Unit/coverage

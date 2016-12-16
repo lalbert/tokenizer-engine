@@ -1,0 +1,35 @@
+{
+	"name" : "lalbert/tokenizer-engine",
+	"description" : "Tokenize string like Elasticsearch",
+	"type" : "library",
+	"homepage" : "https://github.com/lalbert/TokenizerEngine",
+	"license" : "MIT",
+	"authors" : [{
+			"name" : "Luc ALBERT",
+			"email" : "lucalbert66@gmail.com",
+			"homepage" : "https://github.com/lucalbert",
+			"role" : "Developer"
+		}
+	],
+	"support" : {
+		"issues" : "https://github.com/lalbert/TokenizerEngine/issues",
+		"source" : "https://github.com/lalbert/TokenizerEngine"
+	},
+	"keywords" : [
+		"tokenizer"
+	],
+	"autoload" : {
+		"psr-4" : {
+			"TokenizerEngine\\" : "src"
+		}
+	},
+	"autoload-dev" : {
+		"psr-4" : {
+			"TokenizerEngine\\Tests\\" : "tests"
+		}
+	},
+	"require-dev" : {
+		"phpunit/phpunit" : "^4.8 || ^5",
+        "codacy/coverage" : "dev-master"
+	}
+}
