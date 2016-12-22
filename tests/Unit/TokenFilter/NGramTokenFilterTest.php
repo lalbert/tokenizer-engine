@@ -15,6 +15,15 @@ class NGramTokenFilterTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, array_values($filter->filter($tokens)));
     }
 
+    public function testPreserveOriginal()
+    {
+        $tokens = ['Hello', 'world !'];
+        $expected = ['H', 'He', 'e', 'el', 'l', 'll', 'l', 'lo', 'o', 'w', 'wo', 'o', 'or', 'r', 'rl', 'l', 'ld', 'd', 'd ', ' ', ' !', '!'];
+        $filter = new NGramTokenFilter(1, 2, false);
+
+        $this->assertEquals($expected, array_values($filter->filter($tokens)));
+    }
+
     public function testMinMaxNgrams()
     {
         $tokens = ['Hello', 'world !'];

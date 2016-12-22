@@ -28,7 +28,7 @@ class NGramTokenFilter implements TokenFilterInterface
         $_tokens = [];
 
         foreach ((array) $tokens as $token) {
-            $_tokens = array_merge($_tokens, [$token], $this->nGram($token));
+            $_tokens = array_merge($_tokens, $this->preserveOriginal ? [$token] : [], $this->nGram($token));
         }
 
         return $_tokens;
