@@ -14,16 +14,16 @@ class NGramTokenFilterTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals($expected, array_values($filter->filter($tokens)));
     }
-    
+
     public function testMinMaxNgrams()
     {
         $tokens = ['Hello', 'world !'];
         $expected = ['Hello', 'He', 'Hel', 'Hell', 'el', 'ell', 'ello', 'll', 'llo', 'lo', 'world !', 'wo', 'wor', 'worl', 'or', 'orl', 'orld', 'rl', 'rld', 'rld ', 'ld', 'ld ', 'ld !', 'd ', 'd !', ' !'];
         $filter = new NGramTokenFilter(2, 4);
-        
+
         $this->assertEquals($expected, array_values($filter->filter($tokens)));
     }
-    
+
     /**
      * @expectedException \InvalidArgumentException
      * @expectedExceptionMessage minGram and maxGram must be greater than 0.
@@ -32,7 +32,7 @@ class NGramTokenFilterTest extends \PHPUnit_Framework_TestCase
     {
         $filter = new NGramTokenFilter(0, 0);
     }
-    
+
     /**
      * @expectedException \InvalidArgumentException
      * @expectedExceptionMessage maxGram must be greater than minGram.
