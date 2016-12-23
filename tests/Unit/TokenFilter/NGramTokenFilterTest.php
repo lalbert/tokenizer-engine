@@ -33,6 +33,15 @@ class NGramTokenFilterTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, array_values($filter->filter($tokens)));
     }
 
+    public function testSameMinMaxValue()
+    {
+        $tokens = ['Hello', 'world !'];
+        $expected = ['Hello', 'Hel', 'ell', 'llo', 'world !', 'wor', 'orl', 'rld', 'ld ', 'd !'];
+        $filter = new NGramTokenFilter(3, 3);
+
+        $this->assertEquals($expected, array_values($filter->filter($tokens)));
+    }
+
     /**
      * @expectedException \InvalidArgumentException
      * @expectedExceptionMessage minGram and maxGram must be greater than 0.

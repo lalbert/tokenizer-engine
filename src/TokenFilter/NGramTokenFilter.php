@@ -18,7 +18,7 @@ class NGramTokenFilter implements TokenFilterInterface
             throw new \InvalidArgumentException('minGram and maxGram must be greater than 0.');
         }
 
-        if ($this->minGram >= $this->maxGram) {
+        if ($this->minGram > $this->maxGram) {
             throw new \InvalidArgumentException('maxGram must be greater than minGram.');
         }
     }
