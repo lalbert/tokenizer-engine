@@ -5,10 +5,12 @@ namespace TokenizerEngine\TokenFilter;
 class LevenshteinTokenFilter implements TokenFilterInterface
 {
     private $words = [];
+    private $maxDistance;
 
-    public function __construct(array $words = [])
+    public function __construct(array $words = [], $maxDistance = PHP_INT_MAX)
     {
         $this->words = $words;
+        $this->maxDistance = $maxDistance;
     }
 
     public function filter(array $tokens)
@@ -25,6 +27,10 @@ class LevenshteinTokenFilter implements TokenFilterInterface
             // et le mot courant
             $lev = levenshtein($token, $word);
 
+            if ($lev > $this->maxDistance) {
+                continue;
+            }
+
             // cherche une correspondance exacte
             if ($lev == 0) {
                 return $token;
@@ -37,6 +43,10 @@ class LevenshteinTokenFilter implements TokenFilterInterface
                 $closest = $word;
                 $shortest = $lev;
             }
+        }
+
+        if (!isset($closest)) {
+            return $token;
         }
 
         return $closest;
