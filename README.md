@@ -29,9 +29,8 @@ Requirements: PHP 8.2+ and `ext-mbstring`. Recommended:
 
 - `ext-intl`, for Unicode word segmentation (UAX #29) and ASCII folding with ICU;
   a pure PHP fallback is used otherwise;
-- `wamania/php-stemmer`, for Snowball stemming and the German, Spanish,
-  Italian, Portuguese and Dutch analyzers (English and French stemming are
-  built in):
+- `wamania/php-stemmer`, for Snowball stemming and the Dutch analyzer (English,
+  French, German, Spanish, Italian and Portuguese stemming are built in):
 
 ```bash
 composer require wamania/php-stemmer
@@ -152,6 +151,13 @@ $config->analyzerNames();
 $config->analyzer('autocomplete');
 ```
 
+Normalizers (for `keyword` fields) are loaded the same way:
+
+```php
+$config->normalizer('my_normalizer')->normalize('  Café De PARIS ');
+// 'cafe de paris' with the trim, lowercase and asciifolding filters
+```
+
 Unsupported parameters are ignored by default; with `strict: true` they raise
 an exception. Custom components can be registered:
 
@@ -231,7 +237,8 @@ TextChunker::byTokens(Analyzers::standard(), maxTokens: 300, overlapTokens: 50)-
 | `AsciiFoldingTokenFilter` | `asciifolding` | optional locale rules (`de`: ä → ae) |
 | `StopTokenFilter` | `stop` | `_english_`, `_french_`, `_german_`, `_spanish_`, `_italian_`, `_portuguese_`, `_dutch_` |
 | `ElisionTokenFilter` | `elision` | French articles by default, handles `’` |
-| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `english` / `porter`, `light_french`, `minimal_french` (Lucene ports), Snowball otherwise |
+| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `english` / `porter`, `light_french`, `minimal_french`, `light_german`, `light_spanish`, `light_italian`, `light_portuguese` (Lucene ports), Snowball otherwise |
+| `GermanNormalizationTokenFilter` | `german_normalization` | |
 | `KeywordMarkerTokenFilter` | `keyword_marker` | protects words from stemming |
 | `StemmerOverrideTokenFilter` | `stemmer_override` | |
 | `ShingleTokenFilter` | `shingle` | |
@@ -277,19 +284,18 @@ to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 
 ## Parity with Elasticsearch
 
-`tests/Parity` sends a multilingual corpus to this library and to the
-`_analyze` API of a real Elasticsearch node (with the ICU and phonetic
-plugins), and compares terms, positions and offsets for about 80
-configurations: every built-in analyzer, tokenizer, character filter and
-token filter listed above. The CI runs it against Elasticsearch 8.19 and 9.5;
+`tests/Parity` sends a corpus of 13 texts (English, French, German, Spanish,
+Italian, Portuguese, Dutch, URLs, paths, HTML, digits...) to this library and
+to the `_analyze` API of a real Elasticsearch node (with the ICU and phonetic
+plugins), and compares terms, positions and offsets for 91 configurations:
+every built-in analyzer, tokenizer, character filter, token filter and
+normalizer listed above, about 1,150 comparisons. The CI runs it against Elasticsearch 8.19 and 9.5;
 see `tests/Parity/README.md` to run it locally.
 
-Known differences, all covered by the suite in the scope below:
+Every language analyzer (English, French, German, Spanish, Italian,
+Portuguese, Dutch) and normalizer matches exactly. Known differences, all
+covered by the suite in the scope below:
 
-- Stemming for German, Spanish, Italian, Portuguese and Dutch uses the
-  Snowball algorithms, while Elasticsearch uses "light" stemmers: for these
-  analyzers only tokenization, stop words, positions and offsets match. English
-  (Porter) and French stemming are ports of Lucene's code and match exactly.
 - Phonetic encoders fold accented letters before encoding ("Élodie" gives
   E430), whereas Elasticsearch leaves words containing them unchanged.
 - `path_hierarchy` increments positions like Elasticsearch 9; Elasticsearch 8
@@ -309,7 +315,7 @@ Not compared (different by design or not loadable from settings):
 - Regular expressions are PCRE with Java semantics for `\w`, `\d`, `\s` and
   `\b` (ASCII only unless `UNICODE_CHARACTER_CLASS` or `(?U)`); other Java
   specific syntax may not be supported.
-- Not implemented: normalizers, `hunspell`, Painless scripts (`condition`),
+- Not implemented: `hunspell`, Painless scripts (`condition`),
   ICU tokenizer and transforms, Beider-Morse and Double Metaphone encoders,
   CJK specific analysis.
 
@@ -336,6 +342,18 @@ composer test       # PHPUnit
 composer analyse    # PHPStan
 composer cs         # PHP-CS-Fixer (dry run), composer cs-fix to apply
 ```
+
+## Releasing
+
+1. Prepare the changelog on a branch and open a pull request:
+   `.github/scripts/prepare-release.sh 1.2.0` turns the `[Unreleased]` section
+   into `[1.2.0] - <today>` and updates the comparison links.
+2. Once it is merged, either run the `Release` workflow from the Actions tab
+   ("Run workflow", version `1.2.0`), which creates the tag on `master`, or
+   push the tag yourself: `git tag -a 1.2.0 -m 1.2.0 && git push origin 1.2.0`.
+3. The workflow checks the version and its changelog section, runs the tests
+   and publishes the GitHub release with that section as notes. Packagist
+   picks the tag up through its GitHub hook.
 
 ## License
 

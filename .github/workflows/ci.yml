@@ -63,6 +63,7 @@ jobs:
           docker build -q -t tokenizer-engine-es --build-arg ES_VERSION=${{ matrix.elasticsearch }} tests/Parity
           docker run -d --name es -p 9200:9200 \
             -e discovery.type=single-node -e xpack.security.enabled=false \
+            -e cluster.routing.allocation.disk.threshold_enabled=false \
             -e ES_JAVA_OPTS="-Xms512m -Xmx512m" tokenizer-engine-es
       - uses: shivammathur/setup-php@v2
         with:

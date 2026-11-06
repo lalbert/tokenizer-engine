@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-06
+
 ### Added
 - Elasticsearch parity test suite (`tests/Parity`, `composer parity`) run in CI
   against Elasticsearch 8.19 and 9.5 with the ICU and phonetic plugins.
@@ -14,10 +16,24 @@ project adheres to [Semantic Versioning](https://semver.org/).
   longer need `wamania/php-stemmer` (`porter2` is Snowball English).
 - Java flags for patterns (`CASE_INSENSITIVE|COMMENTS|DOTALL|MULTILINE|UNICODE_CHARACTER_CLASS`)
   in the PHP API too.
+- Native light stemmers for German, Spanish, Italian and Portuguese (ports of
+  Lucene, identical on its test vocabularies) and `GermanNormalizationTokenFilter`
+  (`german_normalization`).
+- Normalizers: `AnalysisConfig::normalizer()` loads the `normalizer` section of
+  Elasticsearch settings (and the built-in `lowercase` normalizer) into a
+  `Normalizer`; `normalizerNames()`, `allowInNormalizers()`.
+- Release workflow: pushing a version tag publishes a GitHub release with the
+  matching `CHANGELOG.md` section (`.github/scripts/prepare-release.sh`).
 
 ### Changed
 All changes below align the behaviour on Elasticsearch, as measured by the
 parity suite.
+- German, Spanish, Italian, Portuguese and Dutch analyzers use the same filter
+  chains as Elasticsearch (light stemmers, `german_normalization`, Dutch stem
+  overrides): their stems change, and only the Dutch analyzer still needs
+  `wamania/php-stemmer`.
+- `StandardTokenizer` segments again the pieces of words longer than
+  `max_token_length` (`dell'` gives `dell`).
 - Patterns follow Java semantics: `\w`, `\d`, `\s` and `\b` are ASCII only
   unless `UNICODE_CHARACTER_CLASS` or `(?U)` is used (`pattern` tokenizer,
   `pattern_replace`, `pattern_capture`, `keyword_marker` patterns).
@@ -115,6 +131,7 @@ Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 
 First release.
 
-[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/lalbert/tokenizer-engine/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/lalbert/tokenizer-engine/compare/0.0.1...1.0.0
 [0.0.1]: https://github.com/lalbert/tokenizer-engine/releases/tag/0.0.1

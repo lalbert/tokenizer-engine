@@ -6,8 +6,12 @@ namespace TokenizerEngine\TokenFilter;
 
 use TokenizerEngine\Stemmer\FrenchLightStemmer;
 use TokenizerEngine\Stemmer\FrenchMinimalStemmer;
+use TokenizerEngine\Stemmer\GermanLightStemmer;
+use TokenizerEngine\Stemmer\ItalianLightStemmer;
 use TokenizerEngine\Stemmer\PorterStemmer;
+use TokenizerEngine\Stemmer\PortugueseLightStemmer;
 use TokenizerEngine\Stemmer\SnowballStemmer;
+use TokenizerEngine\Stemmer\SpanishLightStemmer;
 use TokenizerEngine\Stemmer\StemmerInterface;
 use TokenizerEngine\Token;
 
@@ -16,13 +20,14 @@ use TokenizerEngine\Token;
  * Elasticsearch's `stemmer` filter. Tokens flagged as keywords (see
  * KeywordMarkerTokenFilter) are left untouched.
  *
- * - `english` / `porter` (Porter 1980), `light_french` and `minimal_french`
+ * - `english` / `porter` (Porter 1980), `light_french`, `minimal_french`,
+ *   `light_german`, `light_spanish`, `light_italian` and `light_portuguese`
  *   are native ports of the Lucene stemmers used by Elasticsearch (no
  *   dependency);
  * - other names use the Snowball algorithms of the wamania/php-stemmer
- *   package (french, german, porter2, en, fr...). Elasticsearch names that map
- *   to a different algorithm (light_german, light_english...) fall back to
- *   Snowball, so results can differ from Elasticsearch for them.
+ *   package (french, german, dutch, porter2, en, fr...). Elasticsearch names
+ *   that map to a different algorithm (minimal_german, light_english...)
+ *   fall back to Snowball, so results can differ from Elasticsearch for them.
  *
  * Terms are expected to be lowercased first.
  */
@@ -30,10 +35,8 @@ final class StemmerTokenFilter extends AbstractTermTokenFilter
 {
     private const ALIASES = [
         'porter2' => 'english', 'light_english' => 'english', 'minimal_english' => 'english', 'lovins' => 'english',
-        'light_german' => 'german', 'german2' => 'german', 'minimal_german' => 'german',
-        'light_spanish' => 'spanish',
-        'light_italian' => 'italian',
-        'light_portuguese' => 'portuguese', 'minimal_portuguese' => 'portuguese', 'portuguese_rslp' => 'portuguese',
+        'german2' => 'german', 'minimal_german' => 'german',
+        'minimal_portuguese' => 'portuguese', 'portuguese_rslp' => 'portuguese',
         'dutch_kp' => 'dutch',
         'light_finnish' => 'finnish',
         'light_swedish' => 'swedish',
@@ -60,6 +63,10 @@ final class StemmerTokenFilter extends AbstractTermTokenFilter
         return match ($language) {
             'english', 'porter' => new PorterStemmer(),
             'light_french' => new FrenchLightStemmer(),
+            'light_german' => new GermanLightStemmer(),
+            'light_spanish' => new SpanishLightStemmer(),
+            'light_italian' => new ItalianLightStemmer(),
+            'light_portuguese' => new PortugueseLightStemmer(),
             'minimal_french' => new FrenchMinimalStemmer(),
             'possessive_english' => throw new \InvalidArgumentException('Use EnglishPossessiveTokenFilter for "possessive_english".'),
             default => new SnowballStemmer(self::ALIASES[$language] ?? $language),

@@ -25,6 +25,10 @@ final class ElasticsearchParityTest extends TestCase
 
     private static ?string $version = null;
 
+    private const INDEX = 'tokenizer-engine-parity';
+
+    private static bool $indexReady = false;
+
     /**
      * @return iterable<string, array{array<string, mixed>, string}>
      */
@@ -50,9 +54,18 @@ final class ElasticsearchParityTest extends TestCase
             self::unavailable(\sprintf('Elasticsearch plugin "%s" is not installed.', $case['plugin']));
         }
 
-        $request = array_intersect_key($case, array_flip(['analyzer', 'tokenizer', 'char_filter', 'filter']));
-        $expected = self::elasticsearch($url, $request + ['text' => $text]);
-        $actual = array_map(static fn (Token $t): array => $t->toArray(), self::library($request)->tokens($text));
+        $request = array_intersect_key($case, array_flip(['analyzer', 'normalizer', 'tokenizer', 'char_filter', 'filter']));
+
+        if (isset($request['normalizer'])) {
+            self::createIndex($url);
+            $expected = self::elasticsearch($url.'/'.self::INDEX, $request + ['text' => $text]);
+            $engine = (new AnalysisConfig(ParityCases::normalizerSettings(), null, true))->normalizer((string) $request['normalizer'])->engine();
+        } else {
+            $expected = self::elasticsearch($url, $request + ['text' => $text]);
+            $engine = self::library($request);
+        }
+
+        $actual = array_map(static fn (Token $t): array => $t->toArray(), $engine->tokens($text));
 
         $compare = $case['compare'] ?? ['terms', 'positions', 'offsets'];
 
@@ -69,7 +82,8 @@ final class ElasticsearchParityTest extends TestCase
 
         // Elasticsearch offsets refer to the original text in UTF-16 code
         // units; ours refer to the character-filtered text in code points.
-        $comparableOffsets = !isset($request['char_filter']) && !preg_match('/[\x{10000}-\x{10FFFF}]/u', $text);
+        $charFilters = $request['char_filter'] ?? (isset($request['normalizer']) ? (ParityCases::normalizerSettings()['normalizer'][$request['normalizer']]['char_filter'] ?? null) : null);
+        $comparableOffsets = null === $charFilters && !preg_match('/[\x{10000}-\x{10FFFF}]/u', $text);
         if ($comparableOffsets && \in_array('offsets', $compare, true)) {
             self::assertSame(
                 array_map(static fn (array $t): array => [$t['start_offset'], $t['end_offset']], $expected),
@@ -108,6 +122,21 @@ final class ElasticsearchParityTest extends TestCase
         return $response['tokens'];
     }
 
+    private static function createIndex(string $url): void
+    {
+        if (self::$indexReady) {
+            return;
+        }
+
+        self::request($url.'/'.self::INDEX, null, 'DELETE');
+        $response = self::request($url.'/'.self::INDEX, ['settings' => ['analysis' => ParityCases::normalizerSettings()]], 'PUT');
+        if (true !== ($response['acknowledged'] ?? null)) {
+            self::fail('Cannot create the parity index: '.json_encode($response));
+        }
+
+        self::$indexReady = true;
+    }
+
     private static function version(string $url): string
     {
         if (null === self::$version) {
@@ -137,10 +166,10 @@ final class ElasticsearchParityTest extends TestCase
      *
      * @return array<mixed>
      */
-    private static function request(string $url, ?array $body = null): array
+    private static function request(string $url, ?array $body = null, ?string $method = null): array
     {
         $context = stream_context_create(['http' => [
-            'method' => null === $body ? 'GET' : 'POST',
+            'method' => $method ?? (null === $body ? 'GET' : 'POST'),
             'header' => "Content-Type: application/json\r\n",
             'content' => null === $body ? '' : json_encode($body, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES),
             'ignore_errors' => true,

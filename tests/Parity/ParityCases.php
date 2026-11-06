@@ -22,6 +22,9 @@ final class ParityCases
         'french' => 'L’école des chevaux, c’était hier ! Les élèves arrivent à Montréal pour l’été.',
         'german' => 'Die Katzen und die Häuser in München sind schön.',
         'spanish' => 'Los niños comían manzanas en la cocina.',
+        'italian' => "Gli studenti dell'università leggevano libri antichi nelle biblioteche.",
+        'portuguese' => 'As crianças brincavam alegremente nas praças das cidades portuguesas.',
+        'dutch' => 'De kinderen fietsen met hun fietsen naar de bibliotheken van de steden.',
         'mixed case' => "Wi-Fi PowerShot SD500 O'Neil's j2se",
         'url email' => 'Contact: luc@example.fr, https://example.fr/a?b=1 or www.example.org.',
         'path' => '/usr/local/bin/php',
@@ -31,15 +34,40 @@ final class ParityCases
     ];
 
     /**
+     * Analysis settings of the test index holding the normalizers
+     * (Elasticsearch only runs custom normalizers through an index, and index
+     * settings do not accept inline component definitions).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function normalizerSettings(): array
+    {
+        return [
+            'char_filter' => [
+                'no_dashes' => ['type' => 'mapping', 'mappings' => ['- => _', ': => _']],
+                'single_spaces' => ['type' => 'pattern_replace', 'pattern' => '\\s+', 'replacement' => ' '],
+            ],
+            'filter' => [
+                'no_vowels' => ['type' => 'pattern_replace', 'pattern' => '[aeiou]', 'replacement' => ''],
+                'french_elision' => ['type' => 'elision', 'articles' => ['l', 'd', 'c'], 'articles_case' => true],
+            ],
+            'normalizer' => [
+                'n_lowercase_folding' => ['type' => 'custom', 'filter' => ['lowercase', 'asciifolding']],
+                'n_trim_upper' => ['type' => 'custom', 'filter' => ['trim', 'uppercase']],
+                'n_mapping' => ['type' => 'custom', 'char_filter' => ['no_dashes'], 'filter' => ['lowercase']],
+                'n_pattern' => ['type' => 'custom', 'char_filter' => ['single_spaces'], 'filter' => ['no_vowels']],
+                'n_elision' => ['type' => 'custom', 'filter' => ['lowercase', 'french_elision']],
+                'n_german' => ['type' => 'custom', 'filter' => ['lowercase', 'german_normalization', 'decimal_digit']],
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public static function all(): array
     {
         $standard = static fn (array $filter, array $extra = []): array => ['tokenizer' => 'standard', 'filter' => $filter] + $extra;
-        $snowball = [
-            'compare' => ['positions', 'offsets'],
-            'reason' => 'Snowball stemmer here, "light" stemmer in Elasticsearch: tokenization and stop words are compared, not stems.',
-        ];
         $pathPositions = [
             'positions_since' => '9.0.0',
             'reason' => 'Elasticsearch 8 puts every level at position 0; Elasticsearch 9 (and this library) increments positions.',
@@ -60,11 +88,11 @@ final class ParityCases
             'analyzer fingerprint' => ['analyzer' => 'fingerprint'],
             'analyzer english' => ['analyzer' => 'english'],
             'analyzer french' => ['analyzer' => 'french'],
-            'analyzer german' => ['analyzer' => 'german'] + $snowball,
-            'analyzer spanish' => ['analyzer' => 'spanish'] + $snowball,
-            'analyzer italian' => ['analyzer' => 'italian'] + $snowball,
-            'analyzer portuguese' => ['analyzer' => 'portuguese'] + $snowball,
-            'analyzer dutch' => ['analyzer' => 'dutch'] + $snowball,
+            'analyzer german' => ['analyzer' => 'german'],
+            'analyzer spanish' => ['analyzer' => 'spanish'],
+            'analyzer italian' => ['analyzer' => 'italian'],
+            'analyzer portuguese' => ['analyzer' => 'portuguese'],
+            'analyzer dutch' => ['analyzer' => 'dutch'],
 
             // Tokenizers
             'tokenizer standard' => ['tokenizer' => 'standard'],
@@ -116,6 +144,11 @@ final class ParityCases
             'filter stemmer english' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'english']]),
             'filter stemmer light_french' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_french']]),
             'filter stemmer minimal_french' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'minimal_french']]),
+            'filter stemmer light_german' => $standard(['lowercase', 'german_normalization', ['type' => 'stemmer', 'language' => 'light_german']]),
+            'filter stemmer light_spanish' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_spanish']]),
+            'filter stemmer light_italian' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_italian']]),
+            'filter stemmer light_portuguese' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_portuguese']]),
+            'filter german_normalization' => $standard(['lowercase', 'german_normalization']),
             'filter stemmer french snowball' => $standard(['lowercase', ['type' => 'snowball', 'language' => 'French']]),
             'filter porter_stem' => $standard(['lowercase', 'porter_stem']),
             'filter keyword_marker' => $standard(['lowercase', ['type' => 'keyword_marker', 'keywords' => ['chevaux', 'jumped']], 'porter_stem']),
@@ -130,6 +163,15 @@ final class ParityCases
             'filter pattern_capture' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'pattern_capture', 'patterns' => ['(\p{Ll}+)', '(\d+)']]]],
             'filter multiplexer' => $standard([['type' => 'multiplexer', 'filters' => ['lowercase', 'lowercase, porter_stem']]]),
             'filter decimal_digit' => ['tokenizer' => 'whitespace', 'filter' => ['decimal_digit']],
+
+            // Normalizers
+            'normalizer lowercase (built-in)' => ['normalizer' => 'lowercase'],
+            'normalizer lowercase + asciifolding' => ['normalizer' => 'n_lowercase_folding'],
+            'normalizer trim + uppercase' => ['normalizer' => 'n_trim_upper'],
+            'normalizer mapping' => ['normalizer' => 'n_mapping'],
+            'normalizer pattern_replace' => ['normalizer' => 'n_pattern'],
+            'normalizer elision' => ['normalizer' => 'n_elision'],
+            'normalizer german_normalization + decimal_digit' => ['normalizer' => 'n_german'],
 
             // Plugins
             'filter icu_normalizer' => $standard(['icu_normalizer'], ['plugin' => 'analysis-icu']),

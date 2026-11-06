@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TokenizerEngine\Elasticsearch;
 
 use TokenizerEngine\Analyzers;
+use TokenizerEngine\Normalizer;
 use TokenizerEngine\TokenFilter as F;
 use TokenizerEngine\TokenFilter\TokenFilterInterface;
 use TokenizerEngine\Tokenizer as T;
@@ -23,6 +24,18 @@ use TokenizerEngine\TokenizerEngine;
  */
 final class AnalysisConfig
 {
+    /**
+     * Components Elasticsearch accepts in normalizers (they work character by
+     * character); others can be allowed with allowInNormalizers().
+     */
+    private const NORMALIZER_CHAR_FILTERS = ['mapping', 'pattern_replace', 'icu_normalizer'];
+    private const NORMALIZER_FILTERS = ['asciifolding', 'decimal_digit', 'elision', 'german_normalization', 'lowercase', 'pattern_replace', 'trim', 'uppercase', 'icu_normalizer', 'icu_folding'];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $extraNormalizerTypes = [];
+
     private const BUILTIN_ANALYZER_TYPES = ['standard', 'simple', 'whitespace', 'keyword', 'stop', 'fingerprint', 'pattern', ...Analyzers::LANGUAGES];
 
     /**
@@ -67,6 +80,78 @@ final class AnalysisConfig
     public function analyzerNames(): array
     {
         return array_map('strval', array_keys($this->section('analyzer')));
+    }
+
+    /**
+     * @return list<string> names of the normalizers defined in the settings
+     */
+    public function normalizerNames(): array
+    {
+        return array_map('strval', array_keys($this->section('normalizer')));
+    }
+
+    /**
+     * Allows custom component types (registered in the ComponentRegistry) in
+     * normalizers.
+     */
+    public function allowInNormalizers(string ...$types): self
+    {
+        foreach ($types as $type) {
+            $this->extraNormalizerTypes[$type] = true;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Builds a normalizer ("lowercase" is built in, like in Elasticsearch).
+     */
+    public function normalizer(string $name): Normalizer
+    {
+        $definitions = $this->section('normalizer');
+
+        if (!isset($definitions[$name])) {
+            if ('lowercase' === $name) {
+                return new Normalizer((new TokenizerEngine())->addTokenizer(new T\KeywordTokenizer())->addTokenFilter(new F\LowercaseTokenFilter()));
+            }
+
+            throw new \InvalidArgumentException(\sprintf('Unknown normalizer "%s".', $name));
+        }
+
+        $definition = self::definition($definitions[$name], 'normalizer', $name);
+        if ('custom' !== ($definition['type'] ?? 'custom')) {
+            throw new \InvalidArgumentException(\sprintf('Normalizer "%s" must be of type "custom".', $name));
+        }
+
+        $engine = (new TokenizerEngine())->addTokenizer(new T\KeywordTokenizer());
+
+        foreach ($this->references($definition['char_filter'] ?? []) as $reference) {
+            [$type, $params] = $this->resolve('char_filter', $reference);
+            $this->assertNormalizerType($name, 'char_filter', $type, self::NORMALIZER_CHAR_FILTERS);
+            $engine->addCharacterFilter($this->registry->createCharFilter($type, $params));
+            $this->checkUnused($params);
+        }
+
+        foreach ($this->references($definition['filter'] ?? []) as $reference) {
+            [$type, $params] = $this->resolve('filter', $reference);
+            $this->assertNormalizerType($name, 'filter', $type, self::NORMALIZER_FILTERS);
+            $engine->addTokenFilter($this->registry->createTokenFilter($type, $params));
+            $this->checkUnused($params);
+        }
+
+        $this->checkUnused(new Params(array_diff_key($definition, array_flip(['type', 'char_filter', 'filter'])), \sprintf('normalizer "%s"', $name)));
+
+        return new Normalizer($engine);
+    }
+
+    /**
+     * @param list<string> $allowed
+     */
+    private function assertNormalizerType(string $normalizer, string $kind, string $type, array $allowed): void
+    {
+        if (!\in_array($type, $allowed, true) && !isset($this->extraNormalizerTypes[$type])) {
+            throw new \InvalidArgumentException(\sprintf('The %s "%s" cannot be used in normalizer "%s": only components working character by character are allowed (%s).', $kind, $type, $normalizer, implode(', ', $allowed)));
+        }
     }
 
     public function analyzer(string $name = 'default'): TokenizerEngine
