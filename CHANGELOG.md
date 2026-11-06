@@ -18,6 +18,9 @@ Elasticsearch more closely).
 - Swedish, Norwegian, Danish, Finnish and Russian analyzers and stop word lists
   (`_swedish_`, `_norwegian_`, `_danish_`, `_finnish_`, `_russian_`), identical
   to Elasticsearch on the parity corpus.
+- Compound words: `DictionaryDecompounderTokenFilter` (`dictionary_decompounder`)
+  and `HyphenationDecompounderTokenFilter` (`hyphenation_decompounder`, with
+  `HyphenationTree` reading Apache FOP XML patterns), ports of Lucene.
 - `ScandinavianFoldingTokenFilter` (`scandinavian_folding`) and
   `ScandinavianNormalizationTokenFilter` (`scandinavian_normalization`), ports
   of Lucene.

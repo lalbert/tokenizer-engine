@@ -97,6 +97,13 @@ final class ElasticsearchParityTest extends TestCase
      */
     private static function library(array $request): \TokenizerEngine\TokenizerEngine
     {
+        // Elasticsearch reads the hyphenation patterns from its config directory.
+        array_walk_recursive($request, static function (mixed &$value, int|string $key): void {
+            if ('hyphenation_patterns_path' === $key) {
+                $value = __DIR__.'/hyphenation-test.xml';
+            }
+        });
+
         if (isset($request['analyzer'])) {
             return (new AnalysisConfig([]))->analyzer((string) $request['analyzer']);
         }

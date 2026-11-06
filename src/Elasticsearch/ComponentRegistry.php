@@ -6,6 +6,7 @@ namespace TokenizerEngine\Elasticsearch;
 
 use TokenizerEngine\CharacterFilter as C;
 use TokenizerEngine\CharacterFilter\CharacterFilterInterface;
+use TokenizerEngine\Hyphenation\HyphenationTree;
 use TokenizerEngine\Stemmer\SnowballStemmer;
 use TokenizerEngine\TokenFilter as F;
 use TokenizerEngine\TokenFilter\TokenFilterInterface;
@@ -234,6 +235,30 @@ final class ComponentRegistry
             })
             ->addTokenFilter('decimal_digit', static fn () => new F\DecimalDigitTokenFilter())
             ->addTokenFilter('german_normalization', static fn () => new F\GermanNormalizationTokenFilter())
+            ->addTokenFilter('dictionary_decompounder', static function (Params $p) {
+                // Elasticsearch 9 keeps only the longest match whatever this setting.
+                $p->bool('only_longest_match', false);
+
+                return new F\DictionaryDecompounderTokenFilter(
+                    $p->list('word_list', []) ?? [],
+                    $p->string('word_list_path'),
+                    $p->int('min_word_size', 5),
+                    $p->int('min_subword_size', 2),
+                    $p->int('max_subword_size', 15),
+                    true,
+                );
+            })
+            ->addTokenFilter('hyphenation_decompounder', static fn (Params $p) => new F\HyphenationDecompounderTokenFilter(
+                HyphenationTree::fromFile((string) ($p->string('hyphenation_patterns_path') ?? throw new \InvalidArgumentException('hyphenation_decompounder needs hyphenation_patterns_path.'))),
+                $p->list('word_list', []) ?? [],
+                $p->string('word_list_path'),
+                $p->int('min_word_size', 5),
+                $p->int('min_subword_size', 2),
+                $p->int('max_subword_size', 15),
+                $p->bool('only_longest_match', false),
+                $p->bool('no_sub_matches', false),
+                $p->bool('no_overlapping_matches', false),
+            ))
             ->addTokenFilter('scandinavian_folding', static fn () => new F\ScandinavianFoldingTokenFilter())
             ->addTokenFilter('scandinavian_normalization', static fn () => new F\ScandinavianNormalizationTokenFilter())
             ->addTokenFilter('icu_normalizer', static fn (Params $p) => new F\IcuNormalizerTokenFilter(

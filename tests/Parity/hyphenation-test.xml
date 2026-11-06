@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Small hand-written hyphenation patterns (Apache FOP format) used by the
+  tests and the parity suite. Not a real German hyphenation file: they only
+  exercise the algorithm (classes, patterns, exceptions). Part of this
+  project, MIT license.
+-->
+<hyphenation-info>
+  <hyphen-char value="-"/>
+  <hyphen-min before="1" after="1"/>
+  <classes>
+    aA bB cC dD eE fF gG hH iI jJ kK lL mM nN oO pP qQ rR sS tT uU vV wW xX yY zZ äÄ öÖ üÜ ß
+  </classes>
+  <exceptions>
+    kaf-fee-tas-se
+  </exceptions>
+  <patterns>
+    1b 1d 1f 1g 1k 1l 1m 1n 1p 1r 1s 1t 1w 1z
+    2sch s2c c2h 2st s2t f2f m2p p2f n2g g2l
+    .d2 .k2 .t2 .s2 .h2
+    a2u e2i i2e
+    1hof 1haus 1bahn
+  </patterns>
+</hyphenation-info>

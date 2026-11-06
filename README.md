@@ -184,6 +184,10 @@ $config->normalizer('my_normalizer')->normalize('  Café De PARIS ');
 // 'cafe de paris' with the trim, lowercase and asciifolding filters
 ```
 
+File parameters (`stopwords_path`, `synonyms_path`, `hyphenation_patterns_path`...)
+are read as given (absolute, or relative to the working directory), while
+Elasticsearch reads them relative to its config directory.
+
 Unsupported parameters are ignored by default; with `strict: true` they raise
 an exception. Custom components can be registered:
 
@@ -266,6 +270,8 @@ TextChunker::byTokens(Analyzers::standard(), maxTokens: 300, overlapTokens: 50)-
 | `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `english` / `porter`, `light_french`, `minimal_french`, `light_german`, `light_spanish`, `light_italian`, `light_portuguese` (Lucene ports), Snowball otherwise |
 | `GermanNormalizationTokenFilter` | `german_normalization` | |
 | `ScandinavianFoldingTokenFilter`, `ScandinavianNormalizationTokenFilter` | `scandinavian_folding`, `scandinavian_normalization` | |
+| `DictionaryDecompounderTokenFilter` | `dictionary_decompounder` | compound words from a dictionary; like Elasticsearch 9, settings keep only the longest match |
+| `HyphenationDecompounderTokenFilter` | `hyphenation_decompounder` | hyphenation patterns in Apache FOP XML format (`HyphenationTree`), requires ext-dom |
 | `KeywordMarkerTokenFilter` | `keyword_marker` | protects words from stemming |
 | `StemmerOverrideTokenFilter` | `stemmer_override` | |
 | `ShingleTokenFilter` | `shingle` | |
