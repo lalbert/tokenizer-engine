@@ -12,11 +12,16 @@ Elasticsearch more closely).
 - Example and documentation of related content with plain SQL ("more like
   this": tf-idf term selection, BM25 ranking, near-duplicates removed with
   MinHash): `examples/related-content.php`, `docs/related-content.md`.
+- README section "When to use it", with measures of the SQL index from 20,000
+  to 100,000 documents on SQLite, PostgreSQL and MariaDB
+  (`benchmarks/sql-index.php`).
 
 ### Changed
 - The SQL examples run on MySQL, MariaDB, PostgreSQL and SQLite (`EXAMPLES_DSN`,
   see `examples/database.php`), tested on each in CI. The documentation explains
   why the terms need a binary collation on MySQL and MariaDB.
+- The SQL index of the examples inserts postings with multi-row `INSERT`s
+  (about 4 times faster on MariaDB).
 
 ### Fixed
 - The BM25 query of the SQL examples failed on PostgreSQL (numbers were bound

@@ -3,8 +3,8 @@
 This library analyzes text; it is not a search engine. But with the SQL
 database you already have (MySQL, MariaDB, SQLite or PostgreSQL), an analyzer
 and two tables are enough for a correct full-text search on small and medium
-datasets (up to some hundreds of thousands of documents), without running a
-search server. Runnable example: [`examples/search-with-sql.php`](../examples/search-with-sql.php).
+datasets (up to some tens of thousands of documents, see the measures in the
+README, "When to use it"), without running a search server. Runnable example: [`examples/search-with-sql.php`](../examples/search-with-sql.php).
 
 ```bash
 # SQLite in memory, nothing to install
@@ -123,6 +123,7 @@ WHERE t.prefix IN ('vieux', 'qu') GROUP BY d.id, d.title HAVING COUNT(*) = 2;
 - Store `positions` in the postings to rank phrases higher.
 - Several fields: one postings table per field, or a `field` column, and a
   weight per field in the score.
-- Beyond a few million postings, a search engine (Elasticsearch, OpenSearch,
-  Meilisearch, PostgreSQL `tsvector`...) becomes the right tool: the analyzers
+- Beyond some tens of thousands of documents (a few million postings), a
+  search engine (Elasticsearch, OpenSearch, Meilisearch, PostgreSQL
+  `tsvector`...) becomes the right tool: the analyzers
   declared here can be reused as they are in Elasticsearch settings.

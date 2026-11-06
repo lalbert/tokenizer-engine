@@ -51,12 +51,24 @@ How small is "small"? With the SQL index of the [examples](#examples)
 (documents of about 2 KB, French analyzer, PHP 8.3, one core of a cloud VM,
 `benchmarks/sql-index.php`):
 
-SQL_TABLE
+| Documents | Database | Indexing | Query (median / p95) |
+|---|---|---|---|
+| 20,000 (41 MB, 3.3 M postings) | SQLite (file) | 51 s | 55 ms / 69 ms |
+| | PostgreSQL 16 | 70 s | 30 ms / 71 ms |
+| | MariaDB 10.11 | 57 s | 131 ms / 301 ms |
+| 100,000 (204 MB, 16 M postings) | SQLite (file) | 5 min | 291 ms / 509 ms |
+| | PostgreSQL 16 | 6 min | 176 ms / 476 ms |
+| | MariaDB 10.11 | 9 min | 1.1 s / 3.1 s |
 
-Up to some tens of thousands of documents, queries stay well under 100 ms;
-around 100,000 documents, queries with frequent words take a few hundred
-milliseconds: the limit of this simple approach, and the time to move to a
-search engine.
+Databases with their default settings (128 MB of InnoDB buffer pool for
+MariaDB); analysis alone handles about 800 such documents per second.
+
+Up to some tens of thousands of documents, queries take tens of
+milliseconds (a little more on MariaDB without tuning). Around 100,000
+documents, queries with frequent words take from a few hundred milliseconds
+to over a second: the limit of this simple approach, and the time to move to
+a search engine. Below a few hundred documents (a showcase site, a
+knowledge base), everything can even be computed in memory, without an index.
 
 ## Installation
 
