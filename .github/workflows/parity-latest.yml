@@ -1,0 +1,89 @@
+name: Parity with the latest Elasticsearch
+
+# The CI pins Elasticsearch versions. Every week, this workflow runs the parity
+# suite against the latest 8.x and 9.x releases and opens (or updates) an issue
+# when the output of this library no longer matches.
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.latest.outputs.matrix }}
+    steps:
+      - id: latest
+        run: |
+          tags="$(curl -fsS 'https://registry.hub.docker.com/v2/repositories/library/elasticsearch/tags?page_size=100&ordering=last_updated' \
+            | jq -r '.results[].name' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$')"
+          latest() { printf '%s\n' "$tags" | grep -E "^$1\." | sort -V | tail -1; }
+          matrix="$(jq -cn --arg v8 "$(latest 8)" --arg v9 "$(latest 9)" '[$v8, $v9] | map(select(. != ""))')"
+          echo "Latest versions: $matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  parity:
+    needs: versions
+    name: Elasticsearch ${{ matrix.elasticsearch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        elasticsearch: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Elasticsearch
+        run: |
+          docker build -q -t tokenizer-engine-es --build-arg ES_VERSION=${{ matrix.elasticsearch }} tests/Parity
+          docker run -d --name es -p 9200:9200 \
+            -e discovery.type=single-node -e xpack.security.enabled=false \
+            -e cluster.routing.allocation.disk.threshold_enabled=false \
+            -e ES_JAVA_OPTS="-Xms512m -Xmx512m" tokenizer-engine-es
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - name: Wait for Elasticsearch
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' && exit 0
+            sleep 2
+          done
+          docker logs es
+          exit 1
+      - name: Compare with Elasticsearch
+        run: composer parity -- --log-junit parity.xml
+        env:
+          ELASTICSEARCH_URL: http://localhost:9200
+          PARITY_REQUIRED: '1'
+      - name: Report the differences in an issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ matrix.elasticsearch }}
+        run: |
+          title="Output differs from Elasticsearch ${VERSION}"
+          {
+            echo "The weekly parity run against Elasticsearch ${VERSION} failed: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            if [ -f parity.xml ]; then
+              echo "Failing cases:"
+              echo
+              grep -o 'name="testSameOutputAsElasticsearch with data set &quot;[^&]*&quot;' parity.xml \
+                | sed -E 's/.*&quot;(.*)&quot;/- \1/' | head -50 || true
+            fi
+          } > body.md
+          number="$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file body.md
+          else
+            gh issue create --title "$title" --body-file body.md
+          fi
