@@ -13,18 +13,33 @@ namespace TokenizerEngine\Tests\Parity;
  * positions, offsets) and 'texts' the texts used; every restriction must be
  * explained in 'reason' and documented in the README ("Parity with
  * Elasticsearch"). 'positions_since' compares positions only from that
- * Elasticsearch version on (behaviour changed between major versions).
+ * Elasticsearch version on, and 'since' compares the whole case only from
+ * that version on (behaviour changed between major versions).
  */
 final class ParityCases
 {
+    /**
+     * Path of the hyphenation patterns in the Elasticsearch config directory
+     * (see Dockerfile); the library reads tests/Parity/hyphenation-test.xml.
+     */
+    public const HYPHENATION_PATTERNS = 'analysis/hyphenation-test.xml';
+
+    public const COMPOUND_WORDS = ['donau', 'dampf', 'schiff', 'dampfschiff', 'haupt', 'bahn', 'hof', 'bahnhof', 'rat', 'haus', 'rathaus', 'platz', 'kaffee', 'tasse', 'katze', 'kinder', 'buch', 'stadt'];
+
     public const TEXTS = [
         'english' => "The 2 QUICK Brown-Foxes jumped over the lazy dog's bone.",
         'french' => 'L’école des chevaux, c’était hier ! Les élèves arrivent à Montréal pour l’été.',
         'german' => 'Die Katzen und die Häuser in München sind schön.',
+        'german compounds' => 'Das Donaudampfschiff hält am Hauptbahnhof, beim Rathausplatz gibt es eine Kaffeetasse.',
         'spanish' => 'Los niños comían manzanas en la cocina.',
         'italian' => "Gli studenti dell'università leggevano libri antichi nelle biblioteche.",
         'portuguese' => 'As crianças brincavam alegremente nas praças das cidades portuguesas.',
         'dutch' => 'De kinderen fietsen met hun fietsen naar de bibliotheken van de steden.',
+        'swedish' => 'Barnen läste böckerna på biblioteken i de största städerna under sommaren.',
+        'norwegian' => 'Barna leste bøkene på bibliotekene i de største byene om sommeren, blåbærsyltetøy!',
+        'danish' => 'Børnene læste bøgerne på bibliotekerne i de største byer, Aarhus og København.',
+        'finnish' => 'Lapset lukivat kirjoja kaupunkien suurimmissa kirjastoissa kesällä.',
+        'russian' => 'Дети читали книги в библиотеках крупнейших городов этим летом.',
         'mixed case' => "Wi-Fi PowerShot SD500 O'Neil's j2se",
         'url email' => 'Contact: luc@example.fr, https://example.fr/a?b=1 or www.example.org.',
         'path' => '/usr/local/bin/php',
@@ -69,6 +84,10 @@ final class ParityCases
     public static function all(): array
     {
         $standard = static fn (array $filter, array $extra = []): array => ['tokenizer' => 'standard', 'filter' => $filter] + $extra;
+        $decompounderSince = [
+            'since' => '9.0.0',
+            'reason' => 'Elasticsearch 8 returns every dictionary match (or the longest one at each position without skipping it); Elasticsearch 9 (and this library) keeps the longest match and skips past it.',
+        ];
         $pathPositions = [
             'positions_since' => '9.0.0',
             'reason' => 'Elasticsearch 8 puts every level at position 0; Elasticsearch 9 (and this library) increments positions.',
@@ -94,6 +113,11 @@ final class ParityCases
             'analyzer italian' => ['analyzer' => 'italian'],
             'analyzer portuguese' => ['analyzer' => 'portuguese'],
             'analyzer dutch' => ['analyzer' => 'dutch'],
+            'analyzer swedish' => ['analyzer' => 'swedish'],
+            'analyzer norwegian' => ['analyzer' => 'norwegian'],
+            'analyzer danish' => ['analyzer' => 'danish'],
+            'analyzer finnish' => ['analyzer' => 'finnish'],
+            'analyzer russian' => ['analyzer' => 'russian'],
 
             // Tokenizers
             'tokenizer standard' => ['tokenizer' => 'standard'],
@@ -150,6 +174,14 @@ final class ParityCases
             'filter stemmer light_italian' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_italian']]),
             'filter stemmer light_portuguese' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_portuguese']]),
             'filter german_normalization' => $standard(['lowercase', 'german_normalization']),
+            'filter dictionary_decompounder' => $standard(['lowercase', ['type' => 'dictionary_decompounder', 'word_list' => self::COMPOUND_WORDS]]) + $decompounderSince,
+            'filter dictionary_decompounder only_longest_match' => $standard(['lowercase', ['type' => 'dictionary_decompounder', 'word_list' => self::COMPOUND_WORDS, 'only_longest_match' => true, 'min_subword_size' => 3]]) + $decompounderSince,
+            'filter hyphenation_decompounder' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS]]),
+            'filter hyphenation_decompounder only_longest_match' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS, 'only_longest_match' => true]]),
+            'filter hyphenation_decompounder no_sub_matches' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS, 'no_sub_matches' => true]]),
+            'filter hyphenation_decompounder no_overlapping_matches' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS, 'no_overlapping_matches' => true]]),
+            'filter scandinavian_folding' => $standard(['scandinavian_folding']),
+            'filter scandinavian_normalization' => $standard(['scandinavian_normalization']),
             'filter stemmer french snowball' => $standard(['lowercase', ['type' => 'snowball', 'language' => 'French']]),
             'filter porter_stem' => $standard(['lowercase', 'porter_stem']),
             'filter keyword_marker' => $standard(['lowercase', ['type' => 'keyword_marker', 'keywords' => ['chevaux', 'jumped']], 'porter_stem']),

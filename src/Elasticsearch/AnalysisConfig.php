@@ -231,6 +231,11 @@ final class AnalysisConfig
             'italian' => Analyzers::italian($stopWords, $stemExclusion),
             'portuguese' => Analyzers::portuguese($stopWords, $stemExclusion),
             'dutch' => Analyzers::dutch($stopWords, $stemExclusion),
+            'swedish' => Analyzers::swedish($stopWords, $stemExclusion),
+            'norwegian' => Analyzers::norwegian($stopWords, $stemExclusion),
+            'danish' => Analyzers::danish($stopWords, $stemExclusion),
+            'finnish' => Analyzers::finnish($stopWords, $stemExclusion),
+            'russian' => Analyzers::russian($stopWords, $stemExclusion),
             default => Analyzers::get($type),
         };
 

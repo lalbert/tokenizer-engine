@@ -1,0 +1,23 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"],
+        // Data tables, not logic: every entry would be a mutant.
+        "excludes": ["Util/AsciiFoldingMap.php"]
+    },
+    "phpUnit": {
+        "configDir": "."
+    },
+    "testFrameworkOptions": "--testsuite=unit",
+    "timeout": 20,
+    "logs": {
+        "text": "build/infection.log",
+        "summary": "build/infection-summary.log"
+    },
+    // Measured baseline: 79 %. A drop below fails the CI.
+    "minMsi": 78,
+    "minCoveredMsi": 78,
+    "mutators": {
+        "@default": true
+    }
+}

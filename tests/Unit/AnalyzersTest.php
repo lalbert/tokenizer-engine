@@ -50,6 +50,13 @@ final class AnalyzersTest extends TestCase
         self::assertSame(['gatto', 'amico'], Analyzers::italian()->tokenize("Il gatto dell'amico"));
         self::assertSame(['gato', 'casa'], Analyzers::portuguese()->tokenize('Os gatos e as casas'));
         self::assertSame(['kat', 'huiz'], Analyzers::dutch()->tokenize('De katten en de huizen'));
+        self::assertSame(['barn', 'läst', 'böck'], Analyzers::swedish()->tokenize('Barnen läste böckerna'));
+        self::assertSame(['barn', 'lest', 'bøk'], Analyzers::norwegian()->tokenize('Barna leste bøkene'));
+        self::assertSame(['børn', 'læst', 'bøg'], Analyzers::danish()->tokenize('Børnene læste bøgerne'));
+        self::assertSame(['laps', 'lukiv', 'kirj'], Analyzers::finnish()->tokenize('Lapset lukivat kirjoja'));
+        self::assertSame(['дет', 'чита', 'книг'], Analyzers::russian()->tokenize('Дети читали книги'));
+        // A word ending with a digit is not stemmed, like Lucene's Snowball stemmers.
+        self::assertSame(['sd500'], Analyzers::finnish()->tokenize('SD500'));
     }
 
     public function testGet(): void

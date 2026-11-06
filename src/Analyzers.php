@@ -29,7 +29,7 @@ use TokenizerEngine\Tokenizer\WhitespaceTokenizer;
  */
 final class Analyzers
 {
-    public const LANGUAGES = ['english', 'french', 'german', 'spanish', 'italian', 'portuguese', 'dutch'];
+    public const LANGUAGES = ['english', 'french', 'german', 'spanish', 'italian', 'portuguese', 'dutch', 'swedish', 'norwegian', 'danish', 'finnish', 'russian'];
 
     /**
      * Standard tokenizer + lowercase (+ optional stop words).
@@ -196,6 +196,54 @@ final class Analyzers
     }
 
     /**
+     * Swedish, Norwegian, Danish, Finnish and Russian analyzers need
+     * wamania/php-stemmer (Snowball stemmers, like Elasticsearch).
+     *
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
+     */
+    public static function swedish(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
+    {
+        return self::snowballLanguage('swedish', $stopWords, $stemExclusion);
+    }
+
+    /**
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
+     */
+    public static function norwegian(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
+    {
+        return self::snowballLanguage('norwegian', $stopWords, $stemExclusion);
+    }
+
+    /**
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
+     */
+    public static function danish(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
+    {
+        return self::snowballLanguage('danish', $stopWords, $stemExclusion);
+    }
+
+    /**
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
+     */
+    public static function finnish(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
+    {
+        return self::snowballLanguage('finnish', $stopWords, $stemExclusion);
+    }
+
+    /**
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
+     */
+    public static function russian(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
+    {
+        return self::snowballLanguage('russian', $stopWords, $stemExclusion);
+    }
+
+    /**
      * Returns a built-in analyzer by its Elasticsearch name.
      */
     public static function get(string $name): TokenizerEngine
@@ -214,6 +262,11 @@ final class Analyzers
             'italian' => self::italian(),
             'portuguese' => self::portuguese(),
             'dutch' => self::dutch(),
+            'swedish' => self::swedish(),
+            'norwegian' => self::norwegian(),
+            'danish' => self::danish(),
+            'finnish' => self::finnish(),
+            'russian' => self::russian(),
             default => throw new \InvalidArgumentException(\sprintf('Unknown analyzer "%s".', $name)),
         };
     }
@@ -230,5 +283,19 @@ final class Analyzers
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_'.$language.'_'))
             ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
             ->addTokenFilter(new StemmerTokenFilter('light_'.$language));
+    }
+
+    /**
+     * @param string|list<string>|null $stopWords
+     * @param list<string>             $stemExclusion
+     */
+    private static function snowballLanguage(string $language, string|array|null $stopWords, array $stemExclusion): TokenizerEngine
+    {
+        return (new TokenizerEngine())
+            ->addTokenizer(new StandardTokenizer())
+            ->addTokenFilter(new LowercaseTokenFilter())
+            ->addTokenFilter(new StopTokenFilter($stopWords ?? '_'.$language.'_'))
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
+            ->addTokenFilter(new StemmerTokenFilter($language));
     }
 }

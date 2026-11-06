@@ -1,4 +1,5 @@
-The French, German, Spanish, Italian, Portuguese and Dutch stop word lists
+The French, German, Spanish, Italian, Portuguese, Dutch, Swedish, Norwegian,
+Danish, Finnish and Russian stop word lists
 come from the Snowball project (https://snowballstem.org/) and are
 distributed under the 3-clause BSD License:
 

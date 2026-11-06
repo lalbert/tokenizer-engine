@@ -2,3 +2,4 @@
 ARG ES_VERSION=9.5.5
 FROM elasticsearch:${ES_VERSION}
 RUN bin/elasticsearch-plugin install --batch analysis-icu analysis-phonetic
+COPY hyphenation-test.xml config/analysis/hyphenation-test.xml
