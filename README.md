@@ -20,6 +20,44 @@ Typical uses, without running a search cluster:
 > Elasticsearch's analysis components, and the CI checks it against real
 > Elasticsearch 8.19 and 9.5 nodes (see [Parity with Elasticsearch](#parity-with-elasticsearch)).
 
+## When to use it
+
+The goal: correct text analysis for small and medium needs, without running
+and operating a search server. And without locking you in: analyzers are
+declared with Elasticsearch settings, so the day the volume requires it, the
+same settings configure an Elasticsearch index, which produces the same terms
+(checked by the [parity suite](#parity-with-elasticsearch)).
+
+Good fits:
+
+- search, search-as-you-type and related content on data already stored in
+  MySQL, MariaDB, SQLite or PostgreSQL, where their own full-text features are
+  too limited (MySQL `FULLTEXT` has no stemming; SQLite FTS5 stems English
+  only; neither removes French elisions);
+- PHP code around an existing Elasticsearch index: highlighting, query
+  preprocessing, tests without a cluster;
+- the keyword side of a RAG pipeline (passages, BM25, citations);
+- normalization, deduplication and near-duplicate detection.
+
+Not a good fit:
+
+- replacing a search engine: millions of documents, high query traffic,
+  facets, distribution... Use Elasticsearch, OpenSearch or Meilisearch;
+- languages other than the European ones listed below (no Chinese, Japanese,
+  Korean, Arabic...);
+- code that is not PHP: use Lucene or the analyzers of your search engine.
+
+How small is "small"? With the SQL index of the [examples](#examples)
+(documents of about 2 KB, French analyzer, PHP 8.3, one core of a cloud VM,
+`benchmarks/sql-index.php`):
+
+SQL_TABLE
+
+Up to some tens of thousands of documents, queries stay well under 100 ms;
+around 100,000 documents, queries with frequent words take a few hundred
+milliseconds: the limit of this simple approach, and the time to move to a
+search engine.
+
 ## Installation
 
 ```bash
@@ -327,6 +365,9 @@ PostgreSQL and SQLite (SQLite in memory by default, any database with
   (`examples/search-with-sql.php`).
 - [Retrieval augmented generation](docs/rag.md): passages, keyword retrieval
   and a prompt citing its sources, for any LLM (`examples/rag.php`).
+- [Related content](docs/related-content.md): documents similar to the one
+  being read or to a text being written ("more like this"), without
+  near-duplicates (`examples/related-content.php`).
 
 ## Performance
 

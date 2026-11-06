@@ -8,6 +8,11 @@ Elasticsearch more closely).
 
 ## [Unreleased]
 
+### Added
+- Example and documentation of related content with plain SQL ("more like
+  this": tf-idf term selection, BM25 ranking, near-duplicates removed with
+  MinHash): `examples/related-content.php`, `docs/related-content.md`.
+
 ### Changed
 - The SQL examples run on MySQL, MariaDB, PostgreSQL and SQLite (`EXAMPLES_DSN`,
   see `examples/database.php`), tested on each in CI. The documentation explains

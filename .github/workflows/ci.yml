@@ -142,6 +142,12 @@ jobs:
         run: |
           php examples/rag.php | tee rag.txt
           grep -q '\[1\] Observer les baleines à Tadoussac' rag.txt
+      - name: Related content
+        run: |
+          php examples/related-content.php | tee related.txt
+          grep -q 'skipped "Montréal l’été": near-duplicate' related.txt
+          grep -q '1. Apprendre le français à Montréal (score 4.64)' related.txt
+          grep -q '1. Traverser le Saint-Laurent en traversier (score 3.75)' related.txt
 
   benchmarks:
     name: Benchmarks
