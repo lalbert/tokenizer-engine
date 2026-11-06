@@ -1,54 +1,64 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class LevenshteinTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+use TokenizerEngine\Util\Text;
+
+/**
+ * Replaces each term with the closest word of a dictionary (Levenshtein
+ * distance computed on characters, not bytes). Terms farther than
+ * $maxDistance from every word are kept unchanged. On ties, the first word of
+ * the dictionary wins.
+ *
+ * Not an Elasticsearch filter: useful for typo correction on small
+ * vocabularies (cities, product names...).
+ */
+final class LevenshteinTokenFilter extends AbstractTermTokenFilter
 {
-    private $words = [];
-    private $maxDistance;
+    /**
+     * @var list<string>
+     */
+    private readonly array $words;
 
-    public function __construct(array $words = [], $maxDistance = PHP_INT_MAX)
+    /**
+     * @param list<string> $words
+     */
+    public function __construct(array $words = [], private readonly int $maxDistance = \PHP_INT_MAX)
     {
-        $this->words = $words;
-        $this->maxDistance = $maxDistance;
+        if ($maxDistance < 0) {
+            throw new \InvalidArgumentException('maxDistance must be greater than or equal to 0.');
+        }
+
+        $this->words = array_values(array_unique($words));
     }
 
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return array_map([$this, 'levenshteinSearch'], (array) $tokens);
-    }
-
-    private function levenshteinSearch($token)
-    {
-        $shortest = -1;
+        $closest = null;
+        $shortest = \PHP_INT_MAX;
+        $termLength = mb_strlen($term);
 
         foreach ($this->words as $word) {
-            // calcule la distance avec le mot mis en entrée,
-            // et le mot courant
-            $lev = levenshtein($token, $word);
+            if ($word === $term) {
+                return $term;
+            }
 
-            if ($lev > $this->maxDistance) {
+            // The length difference is a lower bound of the distance.
+            $lowerBound = abs($termLength - mb_strlen($word));
+            if ($lowerBound > $this->maxDistance || $lowerBound >= $shortest) {
                 continue;
             }
 
-            // cherche une correspondance exacte
-            if ($lev == 0) {
-                return $token;
-            }
-
-            // Si la distance est plus petite que la prochaine distance trouvée
-            // OU, si le prochain mot le plus près n'a pas encore été trouvé
-            if ($lev <= $shortest || $shortest < 0) {
-                // définition du mot le plus près ainsi que la distance
+            $distance = Text::levenshtein($term, $word);
+            if ($distance <= $this->maxDistance && $distance < $shortest) {
                 $closest = $word;
-                $shortest = $lev;
+                $shortest = $distance;
             }
         }
 
-        if (!isset($closest)) {
-            return $token;
-        }
-
-        return $closest;
+        return $closest ?? $term;
     }
 }

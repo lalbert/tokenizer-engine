@@ -1,11 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class AlphaNumericTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Removes every character that is not a letter, a combining mark or a digit
+ * (any script).
+ */
+final class AlphaNumericTokenFilter extends AbstractTermTokenFilter
 {
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return  preg_replace('/[^A-Za-z0-9]/', '', (array) $tokens);
+        return (string) preg_replace('/[^\p{L}\p{M}\p{N}]+/u', '', $term);
     }
 }

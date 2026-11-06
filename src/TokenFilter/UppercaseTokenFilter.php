@@ -1,11 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class UppercaseTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Uppercases terms (Unicode aware), like Elasticsearch's `uppercase` filter.
+ */
+final class UppercaseTokenFilter extends AbstractTermTokenFilter
 {
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return array_map('mb_strtoupper', (array) $tokens);
+        return mb_strtoupper($term, 'UTF-8');
     }
 }

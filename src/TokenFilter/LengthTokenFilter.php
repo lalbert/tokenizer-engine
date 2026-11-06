@@ -1,25 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class LengthTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Removes terms shorter than $min or longer than $max characters, like
+ * Elasticsearch's `length` filter.
+ */
+final class LengthTokenFilter extends AbstractTermTokenFilter
 {
-    private $min = 0;
-    private $max = PHP_INT_MAX;
-
-    public function __construct($min = 0, $max = PHP_INT_MAX)
+    public function __construct(private readonly int $min = 0, private readonly int $max = \PHP_INT_MAX)
     {
-        $this->min = $min;
-        $this->max = $max;
+        if ($min < 0 || $max < $min) {
+            throw new \InvalidArgumentException('Expected 0 <= min <= max.');
+        }
     }
 
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): ?string
     {
-        return array_filter((array) $tokens, [$this, 'length']);
-    }
+        $length = mb_strlen($term, 'UTF-8');
 
-    private function length($token)
-    {
-        return mb_strlen($token) >= $this->min && mb_strlen($token) <= $this->max;
+        return $length >= $this->min && $length <= $this->max ? $term : null;
     }
 }

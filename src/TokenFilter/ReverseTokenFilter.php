@@ -1,11 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class ReverseTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+use TokenizerEngine\Util\Text;
+
+/**
+ * Reverses each term, like Elasticsearch's `reverse` filter. Works on
+ * grapheme clusters, so accents and combining marks are preserved.
+ */
+final class ReverseTokenFilter extends AbstractTermTokenFilter
 {
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return array_map('strrev', $tokens);
+        return implode('', array_reverse(Text::graphemes($term)));
     }
 }

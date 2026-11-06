@@ -1,79 +1,86 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine;
 
 use TokenizerEngine\CharacterFilter\CharacterFilterInterface;
-use TokenizerEngine\Tokenizer\TokenizerInterface;
+use TokenizerEngine\Elasticsearch\AnalysisConfig;
 use TokenizerEngine\TokenFilter\TokenFilterInterface;
+use TokenizerEngine\Tokenizer\AbstractTokenizer;
+use TokenizerEngine\Tokenizer\TokenizerInterface;
+use TokenizerEngine\Util\Tokens;
 
+/**
+ * An analysis chain: character filters, then tokenizers, then token filters,
+ * applied in the order they were added (like an Elasticsearch analyzer).
+ */
 class TokenizerEngine
 {
     /**
-     * @var CharacterFilterInterface[]
+     * @var list<CharacterFilterInterface>
      */
-    protected $characterFilters = [];
+    protected array $characterFilters = [];
 
     /**
-     * @var TokenizerInterface[]
+     * @var list<TokenizerInterface>
      */
-    protected $tokenizers = [];
+    protected array $tokenizers = [];
 
     /**
-     * @var TokenFilterInterface[]
+     * @var list<TokenFilterInterface>
      */
-    protected $tokenFilters = [];
+    protected array $tokenFilters = [];
 
+    /**
+     * @param array{
+     *     characterFilters?: CharacterFilterInterface|iterable<CharacterFilterInterface>,
+     *     tokenizers?: TokenizerInterface|iterable<TokenizerInterface>,
+     *     tokenFilters?: TokenFilterInterface|iterable<TokenFilterInterface>,
+     * } $config
+     */
     public function __construct(array $config = [])
     {
-        if (isset($config['characterFilters'])) {
-            foreach ((array) $config['characterFilters'] as $filter) {
-                $this->addCharacterFilter($filter);
-            }
+        foreach (self::iterate($config['characterFilters'] ?? []) as $filter) {
+            $this->addCharacterFilter($filter);
         }
 
-        if (isset($config['tokenizers'])) {
-            foreach ((array) $config['tokenizers'] as $tokenizer) {
-                $this->addTokenizer($tokenizer);
-            }
+        foreach (self::iterate($config['tokenizers'] ?? []) as $tokenizer) {
+            $this->addTokenizer($tokenizer);
         }
 
-        if (isset($config['tokenFilters'])) {
-            foreach ((array) $config['tokenFilters'] as $filter) {
-                $this->addTokenFilter($filter);
-            }
+        foreach (self::iterate($config['tokenFilters'] ?? []) as $filter) {
+            $this->addTokenFilter($filter);
         }
     }
 
     /**
-     * @param CharacterFilterInterface $characterFilter
+     * Builds an analyzer from Elasticsearch index settings (array or JSON).
      *
-     * @return \Engine\Engine
+     * @param array<string, mixed>|string $settings
      */
-    public function addCharacterFilter(CharacterFilterInterface $characterFilter)
+    public static function fromElasticsearch(array|string $settings, string $analyzer = 'default'): self
+    {
+        $config = \is_string($settings) ? AnalysisConfig::fromJson($settings) : new AnalysisConfig($settings);
+
+        return $config->analyzer($analyzer);
+    }
+
+    public function addCharacterFilter(CharacterFilterInterface $characterFilter): static
     {
         $this->characterFilters[] = $characterFilter;
 
         return $this;
     }
 
-    /**
-     * @param TokenizerInterface $tokenizer
-     *
-     * @return \Engine\Engine
-     */
-    public function addTokenizer(TokenizerInterface $tokenizer)
+    public function addTokenizer(TokenizerInterface $tokenizer): static
     {
         $this->tokenizers[] = $tokenizer;
 
         return $this;
     }
 
-    /**
-     * @param TokenFilterInterface $filter
-     *
-     * @return \Engine\Engine
-     */
-    public function addTokenFilter(TokenFilterInterface $filter)
+    public function addTokenFilter(TokenFilterInterface $filter): static
     {
         $this->tokenFilters[] = $filter;
 
@@ -81,97 +88,155 @@ class TokenizerEngine
     }
 
     /**
-     * Tokenize $string.
-     *
-     * @param string $string
-     *
-     * @return array
+     * @return list<CharacterFilterInterface>
      */
-    public function tokenize($string)
+    public function getCharacterFilters(): array
     {
-        $result = $string;
+        return $this->characterFilters;
+    }
 
-        foreach ($this->characterFilters as $filter) {
-            $result = $filter->filter($result);
+    /**
+     * @return list<TokenizerInterface>
+     */
+    public function getTokenizers(): array
+    {
+        return $this->tokenizers;
+    }
+
+    /**
+     * @return list<TokenFilterInterface>
+     */
+    public function getTokenFilters(): array
+    {
+        return $this->tokenFilters;
+    }
+
+    /**
+     * Analyzes $text and returns the terms.
+     *
+     * @return list<string>
+     */
+    public function tokenize(string $text): array
+    {
+        return Tokens::terms($this->tokens($text));
+    }
+
+    /**
+     * Analyzes $text and returns Token objects (term, position, offsets, type).
+     * Offsets refer to the text after character filters.
+     *
+     * @return list<Token>
+     */
+    public function tokens(string $text): array
+    {
+        $tokens = $this->tokenizeText($this->filterCharacters($text));
+
+        foreach ($this->tokenFilters as $filter) {
+            $tokens = Tokens::normalize($filter->filter($tokens));
         }
 
+        return $tokens;
+    }
+
+    /**
+     * Debug helper showing the output of every step, similar to
+     * Elasticsearch's `_analyze` API with `explain: true`.
+     *
+     * @return array{
+     *     characterFilters: array<class-string, list<array{input: string, output: string}>>,
+     *     tokenizers: array<class-string, list<array{input: string|list<string>, output: list<string>}>>,
+     *     tokenFilters: array<class-string, list<array{input: list<string>, output: list<string>}>>,
+     *     final: list<string>,
+     *     tokens: list<array{token: string, start_offset: int|null, end_offset: int|null, type: string, position: int}>,
+     * }
+     */
+    public function analyze(string $text): array
+    {
+        $result = ['characterFilters' => [], 'tokenizers' => [], 'tokenFilters' => []];
+
+        foreach ($this->characterFilters as $filter) {
+            $output = $filter->filter($text);
+            $result['characterFilters'][$filter::class][] = ['input' => $text, 'output' => $output];
+            $text = $output;
+        }
+
+        $tokens = [self::textToken($text)];
+        $input = $text;
         foreach ($this->tokenizers as $tokenizer) {
-            $result = $tokenizer->tokenize($result);
+            $tokens = $this->applyTokenizer($tokenizer, $tokens);
+            $output = Tokens::terms($tokens);
+            $result['tokenizers'][$tokenizer::class][] = ['input' => $input, 'output' => $output];
+            $input = $output;
+        }
+        if ([] === $this->tokenizers && '' === $text) {
+            $tokens = [];
         }
 
         foreach ($this->tokenFilters as $filter) {
-            $result = $filter->filter($result);
+            $before = Tokens::terms($tokens);
+            $tokens = Tokens::normalize($filter->filter($tokens));
+            $result['tokenFilters'][$filter::class][] = ['input' => $before, 'output' => Tokens::terms($tokens)];
         }
+
+        $result['final'] = Tokens::terms($tokens);
+        $result['tokens'] = array_map(static fn (Token $token): array => $token->toArray(), $tokens);
 
         return $result;
     }
 
-    /**
-     * Useful to debug.
-     *
-     * @param string $string
-     *
-     * @return array
-     */
-    public function analyze($string)
+    private function filterCharacters(string $text): string
     {
-        $result = [];
-        $result['characterFilters'] = [];
-        $result['tokenizers'] = [];
-        $result['tokenFilters'] = [];
-        $result['final'] = $string;
-
         foreach ($this->characterFilters as $filter) {
-            $class = get_class($filter);
-
-            if (!array_key_exists($class, $result['characterFilters'])) {
-                $result['characterFilters'][$class] = [];
-            }
-
-            $output = $filter->filter($result['final']);
-
-            $result['characterFilters'][$class][] = [
-                'input' => $result['final'],
-                'output' => $output,
-            ];
-
-            $result['final'] = $output;
+            $text = $filter->filter($text);
         }
 
+        return $text;
+    }
+
+    /**
+     * @return list<Token>
+     */
+    private function tokenizeText(string $text): array
+    {
+        if ([] === $this->tokenizers) {
+            // No tokenizer: the whole text is a single token (keyword).
+            return '' === $text ? [] : [self::textToken($text)];
+        }
+
+        $tokens = [self::textToken($text)];
         foreach ($this->tokenizers as $tokenizer) {
-            $class = get_class($tokenizer);
-
-            if (!array_key_exists($class, $result['tokenizers'])) {
-                $result['tokenizers'][$class] = [];
-            }
-
-            $output = $tokenizer->tokenize($result['final']);
-
-            $result['tokenizers'][$class][] = [
-                'input' => $result['final'],
-                'output' => $output,
-            ];
-
-            $result['final'] = $output;
+            $tokens = $this->applyTokenizer($tokenizer, $tokens);
         }
 
-        foreach ($this->tokenFilters as $filter) {
-            $class = get_class($filter);
+        return $tokens;
+    }
 
-            if (!array_key_exists($class, $result['tokenFilters'])) {
-                $result['tokenFilters'][$class] = [];
-            }
+    /**
+     * @param list<Token> $tokens
+     *
+     * @return list<Token>
+     */
+    private function applyTokenizer(TokenizerInterface $tokenizer, array $tokens): array
+    {
+        return $tokenizer instanceof AbstractTokenizer
+            ? $tokenizer->tokenizeTokens($tokens)
+            : Tokens::normalize($tokenizer->tokenize($tokens));
+    }
 
-            $output = $filter->filter($result['final']);
+    private static function textToken(string $text): Token
+    {
+        return new Token($text, 0, 0, mb_strlen($text));
+    }
 
-            $result['tokenFilters'][$class][] = [
-                'input' => $result['final'],
-                'output' => $output,
-            ];
-
-            $result['final'] = $output;
-        }
-
-        return $result;
+    /**
+     * @template T of object
+     *
+     * @param T|iterable<T> $value
+     *
+     * @return iterable<T>
+     */
+    private static function iterate(mixed $value): iterable
+    {
+        return is_iterable($value) ? $value : [$value];
     }
 }

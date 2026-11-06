@@ -1,11 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class LowercaseTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Lowercases terms (Unicode aware), like Elasticsearch's `lowercase` filter.
+ */
+final class LowercaseTokenFilter extends AbstractTermTokenFilter
 {
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return array_map('mb_strtolower', (array) $tokens);
+        return mb_strtolower($term, 'UTF-8');
     }
 }

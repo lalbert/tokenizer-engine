@@ -1,26 +1,26 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class TruncateTokenFilter implements TokenFilterInterface
-{
-    private $length = 10;
+use TokenizerEngine\Token;
 
-    public function __construct($length = 10)
+/**
+ * Truncates terms to $length characters, like Elasticsearch's `truncate`
+ * filter.
+ */
+final class TruncateTokenFilter extends AbstractTermTokenFilter
+{
+    public function __construct(private readonly int $length = 10)
     {
-        $this->length = (int) $length;
-        if ($this->length <= 0) {
+        if ($length <= 0) {
             throw new \InvalidArgumentException('$length must be a positive integer greater than 0.');
         }
     }
 
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return array_map([$this, 'length'], (array) $tokens);
-    }
-
-    private function length($token)
-    {
-        return mb_strcut($token, 0, $this->length);
+        return mb_substr($term, 0, $this->length, 'UTF-8');
     }
 }

@@ -1,38 +1,55 @@
 {
-	"name" : "lalbert/tokenizer-engine",
-	"description" : "Tokenize string like Elasticsearch",
-	"type" : "library",
-	"homepage" : "https://github.com/lalbert/TokenizerEngine",
-	"license" : "MIT",
-	"authors" : [{
-			"name" : "Luc ALBERT",
-			"email" : "lucalbert66@gmail.com",
-			"homepage" : "https://github.com/lucalbert",
-			"role" : "Developer"
-		}
-	],
-	"support" : {
-		"issues" : "https://github.com/lalbert/TokenizerEngine/issues",
-		"source" : "https://github.com/lalbert/TokenizerEngine"
-	},
-	"keywords" : [
-		"tokenizer"
-	],
-	"autoload" : {
-		"psr-4" : {
-			"TokenizerEngine\\" : "src"
-		}
-	},
-	"autoload-dev" : {
-		"psr-4" : {
-			"TokenizerEngine\\Tests\\" : "tests"
-		}
-	},
-	"require" : {
-	    "php": ">=5.4.0"
-	},
-	"require-dev" : {
-		"phpunit/phpunit" : "^4.8 || ^5",
-        "codacy/coverage" : "dev-master"
-	}
+    "name": "lalbert/tokenizer-engine",
+    "description": "Elasticsearch-like text analysis (character filters, tokenizers, token filters) in pure PHP, UTF-8 aware.",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://github.com/lalbert/tokenizer-engine",
+    "keywords": ["tokenizer", "analyzer", "text-analysis", "elasticsearch", "ngram", "stemming", "stopwords", "normalization", "utf-8"],
+    "authors": [
+        {
+            "name": "Luc ALBERT",
+            "email": "lucalbert66@gmail.com",
+            "homepage": "https://github.com/lalbert",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/lalbert/tokenizer-engine/issues",
+        "source": "https://github.com/lalbert/tokenizer-engine"
+    },
+    "require": {
+        "php": ">=8.2",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^11.4",
+        "wamania/php-stemmer": "^4.0"
+    },
+    "suggest": {
+        "ext-intl": "Unicode word segmentation (UAX #29) for StandardTokenizer and better ASCII folding",
+        "wamania/php-stemmer": "Required by StemmerTokenFilter and the language analyzers (french, english, ...)"
+    },
+    "autoload": {
+        "psr-4": {
+            "TokenizerEngine\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TokenizerEngine\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "cs-fix": "php-cs-fixer fix",
+        "ci": ["@cs", "@analyse", "@test"]
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
 }
