@@ -1,13 +1,32 @@
 # Full-text search with plain SQL
 
-This library analyzes text; it is not a search engine. But with an SQL
-database you already have, an analyzer and two tables are enough for a
-correct full-text search on small and medium datasets (up to some hundreds of
-thousands of documents). Runnable example: [`examples/search-with-sql.php`](../examples/search-with-sql.php).
+This library analyzes text; it is not a search engine. But with the SQL
+database you already have (MySQL, MariaDB, SQLite or PostgreSQL), an analyzer
+and two tables are enough for a correct full-text search on small and medium
+datasets (up to some hundreds of thousands of documents), without running a
+search server. Runnable example: [`examples/search-with-sql.php`](../examples/search-with-sql.php).
 
 ```bash
+# SQLite in memory, nothing to install
 php examples/search-with-sql.php "écoles de français à Montréal"
 ```
+
+```bash
+# MySQL or MariaDB: any PDO DSN (the example drops and creates its tables)
+EXAMPLES_DSN='mysql:host=127.0.0.1;dbname=examples;charset=utf8mb4' EXAMPLES_DB_USER=examples EXAMPLES_DB_PASSWORD=secret php examples/search-with-sql.php
+```
+
+The CI runs it on MySQL 8.4, MariaDB 11.4, PostgreSQL 17 and SQLite, and checks
+that the results are the same.
+
+### Why not MySQL `FULLTEXT`?
+
+`FULLTEXT` indexes of MySQL and MariaDB split words and drop stop words, but
+they do not stem ("chevaux" does not find "cheval"), do not remove French
+elisions ("l'école" is one word), ignore words shorter than 3 characters by
+default (`innodb_ft_min_token_size`) and are configured server-wide. Here the
+analysis is done in PHP, per field and per language, and the same settings can
+later configure Elasticsearch.
 
 ## 1. Analyze like Elasticsearch
 
@@ -25,8 +44,20 @@ Index and query must use the same analyzer: "Écoles" and "ecole" both become
 
 ```sql
 CREATE TABLE documents (id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, length INTEGER NOT NULL);
-CREATE TABLE postings (term VARCHAR(100) NOT NULL, document_id INTEGER NOT NULL, tf INTEGER NOT NULL, PRIMARY KEY (term, document_id));
+CREATE TABLE postings (
+    term VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL, -- MySQL / MariaDB; elsewhere: VARCHAR(100)
+    document_id INTEGER NOT NULL,
+    tf INTEGER NOT NULL,
+    PRIMARY KEY (term, document_id)
+);
 ```
+
+**On MySQL and MariaDB, use a binary collation for the terms.** The analyzer
+already decides which words are equal; the database must then compare terms
+byte for byte. The default collations (`utf8mb4_0900_ai_ci`,
+`utf8mb4_general_ci`) ignore case and accents: "pâte" and "pate" would be the
+same key (duplicate entry error), and a query term would match other terms.
+`SqlIndex::termType()` returns the right column type for the PDO driver.
 
 For each document: analyze it, store its number of terms (`length`), and one
 row per distinct term with its frequency (`tf`):
@@ -57,8 +88,11 @@ LIMIT 10;
 ```
 
 (`k1 = 1.2`, `b = 0.75`, the defaults of Elasticsearch.) The query is
-standard SQL: it runs on SQLite, MySQL and PostgreSQL. The example builds it
-with placeholders in [`examples/SqlIndex.php`](../examples/SqlIndex.php).
+standard SQL: it runs on MySQL, MariaDB, SQLite and PostgreSQL. The example
+builds it in [`examples/SqlIndex.php`](../examples/SqlIndex.php): terms are
+placeholders, and the numbers computed in PHP (IDF, average length) are
+written as literals, because some drivers bind parameters as text and
+PostgreSQL refuses arithmetic on text.
 
 ## 4. Highlight the results
 
@@ -77,7 +111,7 @@ Index the prefixes of the titles with an `edge_ngram` analyzer, and analyze
 what is typed without it:
 
 ```sql
-CREATE TABLE title_prefixes (prefix VARCHAR(100) NOT NULL, document_id INTEGER NOT NULL, PRIMARY KEY (prefix, document_id));
+CREATE TABLE title_prefixes (prefix VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL, document_id INTEGER NOT NULL, PRIMARY KEY (prefix, document_id));
 
 -- "vieux qu": titles having both prefixes
 SELECT d.title FROM title_prefixes t JOIN documents d ON d.id = t.document_id

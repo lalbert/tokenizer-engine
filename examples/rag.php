@@ -39,7 +39,8 @@ $french = TokenizerEngine::fromElasticsearch(['analysis' => [
 $chunker = new TextChunker(150, 40, locale: 'fr');
 $strip = new HTMLStripCharacterFilter();
 
-$db = new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+/** @var PDO $db */
+$db = require __DIR__.'/database.php';
 $index = new SqlIndex($db, $french, 'passage_');
 
 // 2. Index every passage; the id encodes the document and the passage number.

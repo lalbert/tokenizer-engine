@@ -10,7 +10,8 @@ settings.
 Typical uses, without running a search cluster:
 
 - normalize and deduplicate strings (names, addresses, products);
-- autocompletion and fuzzy matching on small datasets stored in SQL;
+- full-text search, autocompletion and fuzzy matching on data stored in
+  MySQL, MariaDB, SQLite or PostgreSQL, without a search server;
 - detect near-duplicates (fingerprint, phonetic codes, MinHash);
 - split documents into passages for embeddings / RAG (`TextChunker`);
 - check offline what an Elasticsearch analyzer configuration produces.
@@ -317,7 +318,9 @@ to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 
 ## Examples
 
-Runnable examples (SQLite through PDO), tested in CI:
+Runnable examples in plain SQL through PDO, tested in CI on MySQL, MariaDB,
+PostgreSQL and SQLite (SQLite in memory by default, any database with
+`EXAMPLES_DSN`, see `examples/database.php`):
 
 - [Full-text search with plain SQL](docs/search-with-sql.md): inverted index in
   two tables, BM25 ranking in one SQL query, highlighting, search-as-you-type

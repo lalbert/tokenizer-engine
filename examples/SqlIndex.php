@@ -9,7 +9,7 @@ use TokenizerEngine\TokenizerEngine;
 /**
  * A minimal full-text index in plain SQL (example code, not part of the
  * library): an inverted index in a "postings" table and BM25 ranking in one
- * standard SQL query. Runs on SQLite, MySQL and PostgreSQL.
+ * standard SQL query. Runs on MySQL, MariaDB, SQLite and PostgreSQL.
  */
 final class SqlIndex
 {
@@ -18,8 +18,24 @@ final class SqlIndex
         private readonly TokenizerEngine $analyzer,
         private readonly string $prefix = '',
     ) {
+        $term = self::termType($db);
+        $this->db->exec("DROP TABLE IF EXISTS {$this->prefix}postings");
+        $this->db->exec("DROP TABLE IF EXISTS {$this->prefix}documents");
         $this->db->exec("CREATE TABLE {$this->prefix}documents (id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, length INTEGER NOT NULL)");
-        $this->db->exec("CREATE TABLE {$this->prefix}postings (term VARCHAR(100) NOT NULL, document_id INTEGER NOT NULL, tf INTEGER NOT NULL, PRIMARY KEY (term, document_id))");
+        $this->db->exec("CREATE TABLE {$this->prefix}postings (term $term NOT NULL, document_id INTEGER NOT NULL, tf INTEGER NOT NULL, PRIMARY KEY (term, document_id))");
+    }
+
+    /**
+     * Column type of the terms. The analyzer already decides which words are
+     * equal: the database must compare terms byte for byte. The default
+     * collations of MySQL and MariaDB ignore case and accents, so "pâte" and
+     * "pate" would be the same key there: use a binary collation.
+     */
+    public static function termType(\PDO $db): string
+    {
+        return 'mysql' === $db->getAttribute(\PDO::ATTR_DRIVER_NAME)
+            ? 'VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
+            : 'VARCHAR(100)';
     }
 
     /**
@@ -40,7 +56,7 @@ final class SqlIndex
 
     /**
      * BM25 ranking. IDF values are computed in PHP (SQL engines do not all
-     * have a logarithm function) and passed as a derived table.
+     * have the same logarithm function) and passed as a derived table.
      *
      * @return list<array{id: int, title: string, body: string, score: float}>
      */
@@ -60,28 +76,29 @@ final class SqlIndex
         $statement->execute($terms);
         $frequencies = $statement->fetchAll(\PDO::FETCH_KEY_PAIR);
 
-        // Query terms and their IDF: "SELECT ? AS term, ? AS idf UNION ALL SELECT ?, ? ..."
+        // Query terms and their IDF: "SELECT ? AS term, 1.28 AS idf UNION ALL SELECT ?, 0.94 ...".
+        // Terms are parameters; numbers computed here are written as SQL
+        // literals, since parameters are typed as text by some drivers
+        // (PostgreSQL then refuses arithmetic on them).
         $rows = [];
-        $params = [$averageLength];
         foreach ($terms as $term) {
             $n = (int) ($frequencies[$term] ?? 0);
-            $rows[] = [] === $rows ? 'SELECT ? AS term, ? AS idf' : 'SELECT ?, ?';
-            $params[] = $term;
-            $params[] = log(1 + ($count - $n + 0.5) / ($n + 0.5));
+            $idf = log(1 + ($count - $n + 0.5) / ($n + 0.5));
+            $rows[] = \sprintf([] === $rows ? 'SELECT ? AS term, %F AS idf' : 'SELECT ?, %F', $idf);
         }
 
         $statement = $this->db->prepare(\sprintf(
             'SELECT d.id, d.title, d.body,
-                SUM(q.idf * (p.tf * %F) / (p.tf + %F * (1 - %F + %F * d.length / ?))) AS score
+                SUM(q.idf * (p.tf * %F) / (p.tf + %F * (1 - %F + %F * d.length / %F))) AS score
             FROM (%s) q
             JOIN %spostings p ON p.term = q.term
             JOIN %sdocuments d ON d.id = p.document_id
             GROUP BY d.id, d.title, d.body
             ORDER BY score DESC
             LIMIT %d',
-            $k1 + 1, $k1, $b, $b, implode(' UNION ALL ', $rows), $this->prefix, $this->prefix, $limit,
+            $k1 + 1, $k1, $b, $b, $averageLength, implode(' UNION ALL ', $rows), $this->prefix, $this->prefix, $limit,
         ));
-        $statement->execute($params);
+        $statement->execute($terms);
 
         /** @var list<array{id: int, title: string, body: string, score: float}> */
         return array_map(

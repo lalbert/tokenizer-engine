@@ -8,6 +8,15 @@ Elasticsearch more closely).
 
 ## [Unreleased]
 
+### Changed
+- The SQL examples run on MySQL, MariaDB, PostgreSQL and SQLite (`EXAMPLES_DSN`,
+  see `examples/database.php`), tested on each in CI. The documentation explains
+  why the terms need a binary collation on MySQL and MariaDB.
+
+### Fixed
+- The BM25 query of the SQL examples failed on PostgreSQL (numbers were bound
+  as text parameters).
+
 ## [1.2.0] - 2026-11-06
 
 ### Added

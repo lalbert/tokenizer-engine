@@ -8,6 +8,9 @@ example: [`examples/rag.php`](../examples/rag.php).
 php examples/rag.php "Quand peut-on observer les baleines et où ?"
 ```
 
+It uses SQLite in memory by default, or MySQL, MariaDB or PostgreSQL with
+`EXAMPLES_DSN` (see [Full-text search with plain SQL](search-with-sql.md)).
+
 ## 1. Split the documents into passages
 
 ```php
