@@ -1,0 +1,125 @@
+<?php
+
+declare(strict_types=1);
+
+namespace TokenizerEngine\Tests\Parity;
+
+/**
+ * Analysis configurations compared with Elasticsearch's `_analyze` API.
+ *
+ * Each case is either a built-in analyzer name ('analyzer') or an inline
+ * custom analyzer ('tokenizer', 'char_filter', 'filter'), exactly as sent to
+ * Elasticsearch. 'compare' restricts what is compared (default: terms,
+ * positions, offsets); every restriction must be explained in 'reason' and
+ * documented in the README ("Differences with Elasticsearch").
+ */
+final class ParityCases
+{
+    public const TEXTS = [
+        'english' => "The 2 QUICK Brown-Foxes jumped over the lazy dog's bone.",
+        'french' => 'L’école des chevaux, c’était hier ! Les élèves arrivent à Montréal pour l’été.',
+        'german' => 'Die Katzen und die Häuser in München sind schön.',
+        'spanish' => 'Los niños comían manzanas en la cocina.',
+        'mixed case' => "Wi-Fi PowerShot SD500 O'Neil's j2se",
+        'url email' => 'Contact: luc@example.fr, https://example.fr/a?b=1 or www.example.org.',
+        'path' => '/usr/local/bin/php',
+        'html' => '<p>Hello <b>world</b> &amp; caf&eacute;</p><p>Second paragraph</p>',
+        'digits' => '١٢٣ ４５ 3,14 ﬁnal Ⅻ',
+        'spaces' => '  spaced   out  ',
+    ];
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    public static function all(): array
+    {
+        $standard = static fn (array $filter, array $extra = []): array => ['tokenizer' => 'standard', 'filter' => $filter] + $extra;
+
+        return [
+            // Built-in analyzers
+            'analyzer standard' => ['analyzer' => 'standard'],
+            'analyzer simple' => ['analyzer' => 'simple'],
+            'analyzer whitespace' => ['analyzer' => 'whitespace'],
+            'analyzer keyword' => ['analyzer' => 'keyword'],
+            'analyzer stop' => ['analyzer' => 'stop'],
+            'analyzer fingerprint' => ['analyzer' => 'fingerprint'],
+            'analyzer english' => ['analyzer' => 'english'],
+            'analyzer french' => ['analyzer' => 'french'],
+            'analyzer german' => ['analyzer' => 'german'],
+            'analyzer spanish' => ['analyzer' => 'spanish'],
+            'analyzer italian' => ['analyzer' => 'italian'],
+            'analyzer portuguese' => ['analyzer' => 'portuguese'],
+            'analyzer dutch' => ['analyzer' => 'dutch'],
+
+            // Tokenizers
+            'tokenizer standard' => ['tokenizer' => 'standard'],
+            'tokenizer standard max_token_length' => ['tokenizer' => ['type' => 'standard', 'max_token_length' => 5]],
+            'tokenizer whitespace' => ['tokenizer' => 'whitespace'],
+            'tokenizer letter' => ['tokenizer' => 'letter'],
+            'tokenizer keyword' => ['tokenizer' => 'keyword'],
+            'tokenizer pattern' => ['tokenizer' => 'pattern'],
+            'tokenizer pattern comma' => ['tokenizer' => ['type' => 'pattern', 'pattern' => ',']],
+            'tokenizer uax_url_email' => ['tokenizer' => 'uax_url_email'],
+            'tokenizer ngram' => ['tokenizer' => ['type' => 'ngram', 'min_gram' => 2, 'max_gram' => 3, 'token_chars' => ['letter', 'digit']]],
+            'tokenizer edge_ngram' => ['tokenizer' => ['type' => 'edge_ngram', 'min_gram' => 1, 'max_gram' => 4, 'token_chars' => ['letter']]],
+            'tokenizer path_hierarchy' => ['tokenizer' => 'path_hierarchy'],
+            'tokenizer path_hierarchy reverse' => ['tokenizer' => ['type' => 'path_hierarchy', 'reverse' => true]],
+            'tokenizer path_hierarchy skip' => ['tokenizer' => ['type' => 'path_hierarchy', 'skip' => 1]],
+            'tokenizer char_group' => ['tokenizer' => ['type' => 'char_group', 'tokenize_on_chars' => ['whitespace', '-', 'punctuation']]],
+
+            // Character filters
+            'char_filter html_strip' => ['tokenizer' => 'standard', 'char_filter' => ['html_strip']],
+            'char_filter mapping' => ['tokenizer' => 'standard', 'char_filter' => [['type' => 'mapping', 'mappings' => ['é => e', 'ü => ue']]]],
+            'char_filter pattern_replace' => ['tokenizer' => 'standard', 'char_filter' => [['type' => 'pattern_replace', 'pattern' => '(\d+),(\d+)', 'replacement' => '$1.$2']]],
+
+            // Token filters
+            'filter lowercase' => $standard(['lowercase']),
+            'filter uppercase' => $standard(['uppercase']),
+            'filter asciifolding' => $standard(['asciifolding']),
+            'filter asciifolding preserve_original' => $standard([['type' => 'asciifolding', 'preserve_original' => true]]),
+            'filter stop english' => $standard(['lowercase', 'stop']),
+            'filter stop french' => $standard(['lowercase', ['type' => 'stop', 'stopwords' => '_french_']]),
+            'filter stop custom keep trailing' => $standard([['type' => 'stop', 'stopwords' => ['the', 'bone', 'été'], 'remove_trailing' => false]]),
+            'filter elision' => $standard([['type' => 'elision', 'articles_case' => true]]),
+            'filter ngram' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'ngram', 'min_gram' => 1, 'max_gram' => 2]]],
+            'filter edge_ngram' => $standard([['type' => 'edge_ngram', 'min_gram' => 2, 'max_gram' => 4]]),
+            'filter reverse' => $standard(['reverse']),
+            'filter truncate' => $standard([['type' => 'truncate', 'length' => 3]]),
+            'filter limit' => $standard([['type' => 'limit', 'max_token_count' => 3]]),
+            'filter unique' => $standard(['lowercase', 'unique']),
+            'filter length' => $standard([['type' => 'length', 'min' => 3, 'max' => 5]]),
+            'filter trim' => ['tokenizer' => 'keyword', 'filter' => ['trim']],
+            'filter fingerprint' => $standard(['lowercase', 'fingerprint']),
+            'filter word_delimiter' => ['tokenizer' => 'whitespace', 'filter' => ['word_delimiter']],
+            'filter word_delimiter catenate' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'word_delimiter', 'catenate_words' => true, 'catenate_numbers' => true]]],
+            'filter apostrophe' => $standard(['apostrophe']),
+            'filter possessive_english' => $standard([['type' => 'stemmer', 'language' => 'possessive_english']]),
+            'filter stemmer english' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'english']]),
+            'filter stemmer light_french' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_french']]),
+            'filter stemmer minimal_french' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'minimal_french']]),
+            'filter stemmer french snowball' => $standard(['lowercase', ['type' => 'snowball', 'language' => 'French']]),
+            'filter porter_stem' => $standard(['lowercase', 'porter_stem']),
+            'filter keyword_marker' => $standard(['lowercase', ['type' => 'keyword_marker', 'keywords' => ['chevaux', 'jumped']], 'porter_stem']),
+            'filter stemmer_override' => $standard(['lowercase', ['type' => 'stemmer_override', 'rules' => ['chevaux => horse', 'jumped => jump']], 'porter_stem']),
+            'filter synonym' => $standard(['lowercase', ['type' => 'synonym', 'synonyms' => ['quick, fast', 'lazy => idle', 'école, school']]]),
+            'filter shingle' => $standard(['lowercase', 'shingle']),
+            'filter shingle 3 no unigrams' => $standard(['lowercase', ['type' => 'shingle', 'max_shingle_size' => 3, 'output_unigrams' => false]]),
+            'filter shingle after stop' => $standard(['lowercase', 'stop', 'shingle']),
+            'filter keep' => $standard(['lowercase', ['type' => 'keep', 'keep_words' => ['quick', 'école', 'katzen']]]),
+            'filter keep_types' => ['tokenizer' => 'uax_url_email', 'filter' => [['type' => 'keep_types', 'types' => ['<EMAIL>', '<URL>']]]],
+            'filter pattern_replace' => $standard([['type' => 'pattern_replace', 'pattern' => '[aeiou]', 'replacement' => '']]),
+            'filter pattern_capture' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'pattern_capture', 'patterns' => ['(\p{Ll}+)', '(\d+)']]]],
+            'filter multiplexer' => $standard([['type' => 'multiplexer', 'filters' => ['lowercase', 'lowercase, porter_stem']]]),
+            'filter decimal_digit' => ['tokenizer' => 'whitespace', 'filter' => ['decimal_digit']],
+
+            // Plugins
+            'filter icu_normalizer' => $standard(['icu_normalizer'], ['plugin' => 'analysis-icu']),
+            'filter icu_folding' => $standard(['icu_folding'], ['plugin' => 'analysis-icu']),
+            'char_filter icu_normalizer' => ['tokenizer' => 'standard', 'char_filter' => ['icu_normalizer'], 'plugin' => 'analysis-icu'],
+            'filter phonetic soundex' => $standard([['type' => 'phonetic', 'encoder' => 'soundex']], ['plugin' => 'analysis-phonetic']),
+            'filter phonetic refined_soundex' => $standard([['type' => 'phonetic', 'encoder' => 'refined_soundex']], ['plugin' => 'analysis-phonetic']),
+            'filter phonetic metaphone' => $standard([['type' => 'phonetic', 'encoder' => 'metaphone']], ['plugin' => 'analysis-phonetic']),
+            'filter phonetic cologne' => $standard([['type' => 'phonetic', 'encoder' => 'cologne']], ['plugin' => 'analysis-phonetic']),
+        ];
+    }
+}
