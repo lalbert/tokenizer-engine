@@ -348,11 +348,12 @@ composer cs         # PHP-CS-Fixer (dry run), composer cs-fix to apply
 1. Prepare the changelog on a branch and open a pull request:
    `.github/scripts/prepare-release.sh 1.2.0` turns the `[Unreleased]` section
    into `[1.2.0] - <today>` and updates the comparison links.
-2. Once it is merged, tag `master` and push the tag:
-   `git tag -a 1.2.0 -m 1.2.0 && git push origin 1.2.0`.
-3. The `Release` workflow checks that the tag is on `master` and has a
-   changelog section, runs the tests and publishes the GitHub release with
-   that section as notes. Packagist picks the tag up through its GitHub hook.
+2. Once it is merged, either run the `Release` workflow from the Actions tab
+   ("Run workflow", version `1.2.0`), which creates the tag on `master`, or
+   push the tag yourself: `git tag -a 1.2.0 -m 1.2.0 && git push origin 1.2.0`.
+3. The workflow checks the version and its changelog section, runs the tests
+   and publishes the GitHub release with that section as notes. Packagist
+   picks the tag up through its GitHub hook.
 
 ## License
 

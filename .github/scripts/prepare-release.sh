@@ -38,5 +38,5 @@ awk -v version="$version" -v date="$date" -v previous="$previous" -v repo="$repo
 ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 
 .github/scripts/changelog-section.sh "$version" "$file" > /dev/null
-echo "CHANGELOG.md prepared for $version ($date). Open a pull request, merge it, then push the tag:"
-echo "  git tag -a $version -m $version && git push origin $version"
+echo "CHANGELOG.md prepared for $version ($date). Open a pull request, merge it, then run the"
+echo "Release workflow with version $version (or push the tag: git tag -a $version -m $version && git push origin $version)"
