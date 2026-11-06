@@ -6,6 +6,7 @@ namespace TokenizerEngine\Highlighting;
 
 use TokenizerEngine\Token;
 use TokenizerEngine\TokenizerEngine;
+use TokenizerEngine\Util\CharCursor;
 
 /**
  * Finds where the terms of a query appear in a text: both are analyzed (with
@@ -64,20 +65,34 @@ final class TermMatcher
             $passages[] = ['start' => $start, 'end' => $end, 'terms' => [$hit->term]];
         }
 
-        $slice = static fn (int $start, int $end): string => mb_substr($text, $start, $end - $start, 'UTF-8');
+        $segments = array_map(static fn (array $p): array => $map->textSegments($p['start'], $p['end']), $passages);
 
-        return array_map(
-            static fn (array $p): TermMatch => new TermMatch(
+        // All offsets are resolved in one pass over the text: linear time.
+        $offsets = [];
+        foreach ($passages as $i => $p) {
+            $offsets[] = $p['start'];
+            $offsets[] = $p['end'];
+            foreach ($segments[$i] as [$start, $end]) {
+                $offsets[] = $start;
+                $offsets[] = $end;
+            }
+        }
+        $cursor = (new CharCursor($text))->prepare($offsets);
+
+        $matches = [];
+        foreach ($passages as $i => $p) {
+            $matches[] = new TermMatch(
                 $p['terms'],
                 $p['start'],
                 $p['end'],
-                $slice($p['start'], $p['end']),
+                $cursor->substring($p['start'], $p['end']),
                 array_map(
-                    static fn (array $s): array => ['start' => $s[0], 'end' => $s[1], 'text' => $slice($s[0], $s[1])],
-                    $map->textSegments($p['start'], $p['end']),
+                    static fn (array $s): array => ['start' => $s[0], 'end' => $s[1], 'text' => $cursor->substring($s[0], $s[1])],
+                    $segments[$i],
                 ),
-            ),
-            $passages,
-        );
+            );
+        }
+
+        return $matches;
     }
 }

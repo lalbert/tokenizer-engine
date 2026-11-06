@@ -49,6 +49,20 @@ jobs:
         if: ${{ matrix.php == '8.4' && matrix.intl }}
         run: vendor/bin/phpunit --coverage-text --coverage-clover build/clover.xml
 
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      # Informative: timings depend on the runner, they are not compared.
+      - run: composer bench
+
   parity:
     name: Elasticsearch ${{ matrix.elasticsearch }} parity
     runs-on: ubuntu-latest

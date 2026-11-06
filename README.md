@@ -306,6 +306,23 @@ string, a list of strings or `null` to drop the token), `AbstractTokenFilter`
 to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 `[term, offset]` pairs).
 
+## Performance
+
+`composer bench` runs the PHPBench benchmarks of `benchmarks/`. Indicative
+timings on 100 KB of French text or HTML (PHP 8.3, one core of a cloud VM):
+
+| Operation | Time |
+|---|---|
+| Standard analyzer | 15 ms |
+| French analyzer (light stemmer, stop words, elision) | 28 ms |
+| `html_strip` with offset mapping | 7 ms |
+| HTML analysis with offsets mapped to the source | 25 ms |
+| `TermMatcher` on 100 KB of HTML | 27 ms |
+| `TextChunker` (1,000 characters, 200 of overlap) | 2.4 ms |
+
+Mapping offsets back to the original text costs almost nothing compared with
+the filtering itself.
+
 ## Parity with Elasticsearch
 
 `tests/Parity` sends a corpus of 13 texts (English, French, German, Spanish,

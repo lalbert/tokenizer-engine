@@ -212,6 +212,14 @@ final class WordDelimiterTokenFilter extends AbstractTokenFilter
 
     private function charType(string $char): string
     {
+        /** @var array<string, string> $cache */
+        static $cache = [];
+
+        return $cache[$char] ??= self::computeCharType($char);
+    }
+
+    private static function computeCharType(string $char): string
+    {
         return match (true) {
             1 === preg_match('/^[\p{Lu}\p{Lt}]$/u', $char) => self::CHAR_TYPE_UPPER,
             1 === preg_match('/^\p{L}$/u', $char) => self::CHAR_TYPE_LOWER,

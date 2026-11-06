@@ -109,6 +109,21 @@ final class TermMatcherTest extends TestCase
         self::assertSame('TV', $matches[0]->text);
     }
 
+    public function testLongDocument(): void
+    {
+        $html = str_repeat(self::HTML, 200);
+        $matches = (new TermMatcher(self::frenchHtml()))->match($html, 'école montréal');
+
+        self::assertCount(400, $matches);
+        foreach ($matches as $match) {
+            self::assertSame(mb_substr($html, $match->start, $match->end - $match->start), $match->text);
+            foreach ($match->segments as $segment) {
+                self::assertSame(mb_substr($html, $segment['start'], $segment['end'] - $segment['start']), $segment['text']);
+                self::assertStringNotContainsString('<', $segment['text']);
+            }
+        }
+    }
+
     public function testSortedByPosition(): void
     {
         $matches = (new TermMatcher(Analyzers::standard()))->match('b a b', 'a b');

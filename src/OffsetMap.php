@@ -98,9 +98,27 @@ final class OffsetMap
     {
         $segments = [];
         $cursor = $start;
+        $count = \count($this->markup);
 
-        foreach ($this->markup as [$markupStart, $markupEnd]) {
-            if ($markupEnd <= $cursor || $markupStart >= $end) {
+        // First markup range ending after $start (ranges are sorted and do
+        // not overlap): binary search, so that a long document stays fast.
+        $low = 0;
+        $high = $count;
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->markup[$mid][1] <= $start) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        for ($i = $low; $i < $count; ++$i) {
+            [$markupStart, $markupEnd] = $this->markup[$i];
+            if ($markupStart >= $end) {
+                break;
+            }
+            if ($markupEnd <= $cursor) {
                 continue;
             }
             if ($markupStart > $cursor) {

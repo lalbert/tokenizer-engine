@@ -14,6 +14,7 @@ Elasticsearch more closely).
   original text and the text segments to wrap, skipping markup.
 - `OffsetMap`, `OffsetMappingCharacterFilterInterface` and
   `TokenizerEngine::tokensAndOffsetMap()`.
+- PHPBench benchmarks (`composer bench`), run in CI for information.
 
 ### Changed
 - Token offsets refer to the original text, before character filters, like
@@ -23,6 +24,7 @@ Elasticsearch more closely).
   removed, every other tag (unknown tags included) and `<script>`/`<style>`
   elements become a line break, `&nbsp;` becomes a space.
 - The parity suite compares offsets with character filters too.
+- `WordDelimiterTokenFilter` caches character classes (about 15 % faster).
 
 ## [1.1.0] - 2026-11-06
 
