@@ -74,22 +74,70 @@ jobs:
           path: build/infection*.log
 
   examples:
-    name: Examples
+    name: Examples (${{ matrix.database }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: SQLite
+            dsn: ''
+          - database: MySQL 8.4
+            image: mysql:8.4
+            dsn: 'mysql:host=127.0.0.1;port=3306;dbname=examples;charset=utf8mb4'
+          - database: MariaDB 11.4
+            image: mariadb:11.4
+            dsn: 'mysql:host=127.0.0.1;port=3306;dbname=examples;charset=utf8mb4'
+          - database: PostgreSQL 17
+            image: postgres:17
+            dsn: 'pgsql:host=127.0.0.1;port=5432;dbname=examples'
+    services:
+      database:
+        # An empty image skips the service (SQLite).
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_DATABASE: examples
+          MYSQL_USER: examples
+          MYSQL_PASSWORD: examples
+          MYSQL_ROOT_PASSWORD: root
+          MARIADB_DATABASE: examples
+          MARIADB_USER: examples
+          MARIADB_PASSWORD: examples
+          MARIADB_ROOT_PASSWORD: root
+          POSTGRES_DB: examples
+          POSTGRES_USER: examples
+          POSTGRES_PASSWORD: examples
+        ports:
+          - 3306:3306
+          - 5432:5432
+    env:
+      EXAMPLES_DSN: ${{ matrix.dsn }}
+      EXAMPLES_DB_USER: examples
+      EXAMPLES_DB_PASSWORD: examples
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, intl, pdo_sqlite
+          extensions: mbstring, intl, pdo_sqlite, pdo_mysql, pdo_pgsql
           coverage: none
       - uses: ramsey/composer-install@v3
+      - name: Wait for the database
+        if: matrix.dsn != ''
+        run: |
+          for i in $(seq 1 60); do
+            php -r 'new PDO(getenv("EXAMPLES_DSN"), getenv("EXAMPLES_DB_USER"), getenv("EXAMPLES_DB_PASSWORD"));' 2>/dev/null && exit 0
+            sleep 2
+          done
+          echo "Database not ready" && exit 1
       - name: Search with plain SQL
         run: |
           php examples/search-with-sql.php | tee search.txt
-          grep -q '1. Apprendre le français à Montréal' search.txt
+          grep -q '1. Apprendre le français à Montréal (score 4.31)' search.txt
           grep -q '<mark>écoles</mark>' search.txt
           grep -q 'Suggestions for "vieux qu": Le Vieux-Québec à pied' search.txt
+      - name: Search again (tables are recreated)
+        run: php examples/search-with-sql.php | diff search.txt -
       - name: RAG
         run: |
           php examples/rag.php | tee rag.txt

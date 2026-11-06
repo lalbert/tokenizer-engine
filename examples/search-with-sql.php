@@ -5,10 +5,11 @@ declare(strict_types=1);
 /*
  * Full-text search with plain SQL: an inverted index in two tables and BM25
  * ranking in one standard SQL query (examples/SqlIndex.php), highlighting with TermMatcher and
- * search-as-you-type with edge n-grams. Uses SQLite through PDO; the SQL
- * also runs on MySQL and PostgreSQL.
+ * search-as-you-type with edge n-grams. Standard SQL through PDO: runs on
+ * MySQL, MariaDB, SQLite (default, in memory) and PostgreSQL.
  *
  * Run: php examples/search-with-sql.php ["your query"]
+ * On MySQL / MariaDB: see examples/database.php (EXAMPLES_DSN).
  */
 
 use TokenizerEngine\Examples\SqlIndex;
@@ -39,10 +40,12 @@ $autocompleteSearch = TokenizerEngine::fromElasticsearch($settings, 'autocomplet
 
 // 2. Index: documents and postings (term -> document, term frequency) in
 //    examples/SqlIndex.php, plus the prefixes of the titles here.
-$db = new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+/** @var PDO $db */
+$db = require __DIR__.'/database.php';
+$db->exec('DROP TABLE IF EXISTS title_prefixes');
 $index = new SqlIndex($db, $french);
-$db->exec('CREATE TABLE title_prefixes (prefix VARCHAR(100) NOT NULL, document_id INTEGER NOT NULL, PRIMARY KEY (prefix, document_id))');
-$insertPrefix = $db->prepare('INSERT OR IGNORE INTO title_prefixes (prefix, document_id) VALUES (?, ?)'); // MySQL: INSERT IGNORE, PostgreSQL: ON CONFLICT DO NOTHING
+$db->exec('CREATE TABLE title_prefixes (prefix '.SqlIndex::termType($db).' NOT NULL, document_id INTEGER NOT NULL, PRIMARY KEY (prefix, document_id))');
+$insertPrefix = $db->prepare('INSERT INTO title_prefixes (prefix, document_id) VALUES (?, ?)');
 
 foreach (require __DIR__.'/corpus.php' as $i => $document) {
     $index->add($i + 1, $document['title'], $document['body']);
