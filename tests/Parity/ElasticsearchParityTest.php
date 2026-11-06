@@ -54,6 +54,10 @@ final class ElasticsearchParityTest extends TestCase
             self::unavailable(\sprintf('Elasticsearch plugin "%s" is not installed.', $case['plugin']));
         }
 
+        if (isset($case['since']) && version_compare(self::version($url), (string) $case['since'], '<')) {
+            self::markTestSkipped(\sprintf('Compared from Elasticsearch %s on: %s', $case['since'], $case['reason'] ?? ''));
+        }
+
         $request = array_intersect_key($case, array_flip(['analyzer', 'normalizer', 'tokenizer', 'char_filter', 'filter']));
 
         if (isset($request['normalizer'])) {

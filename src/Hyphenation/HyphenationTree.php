@@ -71,8 +71,9 @@ final class HyphenationTree
         $hyphenChar = '-';
         foreach ($document->getElementsByTagName('hyphen-char') as $element) {
             $value = $element->getAttribute('value');
-            if ('' !== $value) {
-                $hyphenChar = mb_substr($value, 0, 1);
+            $first = mb_substr($value, 0, 1);
+            if ('' !== $first) {
+                $hyphenChar = $first;
             }
         }
 
@@ -243,6 +244,8 @@ final class HyphenationTree
 
     /**
      * Exceptions are words with hyphen characters or <hyphen/> elements.
+     *
+     * @param non-empty-string $hyphenChar
      *
      * @return list<list<string>>
      */

@@ -26,6 +26,7 @@ Elasticsearch more closely).
 - Compound words: `DictionaryDecompounderTokenFilter` (`dictionary_decompounder`)
   and `HyphenationDecompounderTokenFilter` (`hyphenation_decompounder`, with
   `HyphenationTree` reading Apache FOP XML patterns), ports of Lucene.
+  `dictionary_decompounder` behaves like Elasticsearch 9 (longest match only).
 - `ScandinavianFoldingTokenFilter` (`scandinavian_folding`) and
   `ScandinavianNormalizationTokenFilter` (`scandinavian_normalization`), ports
   of Lucene.

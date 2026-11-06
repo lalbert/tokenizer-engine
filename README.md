@@ -362,6 +362,10 @@ covered by the suite in the scope below:
   E430), whereas Elasticsearch leaves words containing them unchanged.
 - `path_hierarchy` increments positions like Elasticsearch 9; Elasticsearch 8
   puts every level at position 0.
+- `dictionary_decompounder` keeps the longest match and skips past it, like
+  Elasticsearch 9 (whatever `only_longest_match`); Elasticsearch 8 returns every
+  match by default, and the longest match at each position without skipping
+  with `only_longest_match`. The suite compares it with Elasticsearch 9 only.
 - Offsets are counted in Unicode code points; Elasticsearch counts UTF-16 code
   units, so they differ for characters outside the BMP, such as emoji.
 - Custom character filters that only implement `CharacterFilterInterface` are

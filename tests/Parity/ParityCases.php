@@ -13,7 +13,8 @@ namespace TokenizerEngine\Tests\Parity;
  * positions, offsets) and 'texts' the texts used; every restriction must be
  * explained in 'reason' and documented in the README ("Parity with
  * Elasticsearch"). 'positions_since' compares positions only from that
- * Elasticsearch version on (behaviour changed between major versions).
+ * Elasticsearch version on, and 'since' compares the whole case only from
+ * that version on (behaviour changed between major versions).
  */
 final class ParityCases
 {
@@ -83,6 +84,10 @@ final class ParityCases
     public static function all(): array
     {
         $standard = static fn (array $filter, array $extra = []): array => ['tokenizer' => 'standard', 'filter' => $filter] + $extra;
+        $decompounderSince = [
+            'since' => '9.0.0',
+            'reason' => 'Elasticsearch 8 returns every dictionary match (or the longest one at each position without skipping it); Elasticsearch 9 (and this library) keeps the longest match and skips past it.',
+        ];
         $pathPositions = [
             'positions_since' => '9.0.0',
             'reason' => 'Elasticsearch 8 puts every level at position 0; Elasticsearch 9 (and this library) increments positions.',
@@ -169,8 +174,8 @@ final class ParityCases
             'filter stemmer light_italian' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_italian']]),
             'filter stemmer light_portuguese' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_portuguese']]),
             'filter german_normalization' => $standard(['lowercase', 'german_normalization']),
-            'filter dictionary_decompounder' => $standard(['lowercase', ['type' => 'dictionary_decompounder', 'word_list' => self::COMPOUND_WORDS]]),
-            'filter dictionary_decompounder only_longest_match' => $standard(['lowercase', ['type' => 'dictionary_decompounder', 'word_list' => self::COMPOUND_WORDS, 'only_longest_match' => true, 'min_subword_size' => 3]]),
+            'filter dictionary_decompounder' => $standard(['lowercase', ['type' => 'dictionary_decompounder', 'word_list' => self::COMPOUND_WORDS]]) + $decompounderSince,
+            'filter dictionary_decompounder only_longest_match' => $standard(['lowercase', ['type' => 'dictionary_decompounder', 'word_list' => self::COMPOUND_WORDS, 'only_longest_match' => true, 'min_subword_size' => 3]]) + $decompounderSince,
             'filter hyphenation_decompounder' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS]]),
             'filter hyphenation_decompounder only_longest_match' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS, 'only_longest_match' => true]]),
             'filter hyphenation_decompounder no_sub_matches' => $standard(['lowercase', ['type' => 'hyphenation_decompounder', 'hyphenation_patterns_path' => self::HYPHENATION_PATTERNS, 'word_list' => self::COMPOUND_WORDS, 'no_sub_matches' => true]]),
