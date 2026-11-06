@@ -15,6 +15,9 @@ Elasticsearch more closely).
 - `OffsetMap`, `OffsetMappingCharacterFilterInterface` and
   `TokenizerEngine::tokensAndOffsetMap()`.
 - PHPBench benchmarks (`composer bench`), run in CI for information.
+- Examples, tested in CI: full-text search with plain SQL (BM25, highlighting,
+  search-as-you-type) and retrieval augmented generation
+  (`docs/search-with-sql.md`, `docs/rag.md`, `examples/`).
 - Swedish, Norwegian, Danish, Finnish and Russian analyzers and stop word lists
   (`_swedish_`, `_norwegian_`, `_danish_`, `_finnish_`, `_russian_`), identical
   to Elasticsearch on the parity corpus.

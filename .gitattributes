@@ -2,6 +2,8 @@
 
 /.github            export-ignore
 /benchmarks         export-ignore
+/docs               export-ignore
+/examples           export-ignore
 /phpbench.json      export-ignore
 /tests              export-ignore
 /.gitattributes     export-ignore

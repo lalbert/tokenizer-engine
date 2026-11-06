@@ -49,6 +49,28 @@ jobs:
         if: ${{ matrix.php == '8.4' && matrix.intl }}
         run: vendor/bin/phpunit --coverage-text --coverage-clover build/clover.xml
 
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, pdo_sqlite
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - name: Search with plain SQL
+        run: |
+          php examples/search-with-sql.php | tee search.txt
+          grep -q '1. Apprendre le français à Montréal' search.txt
+          grep -q '<mark>écoles</mark>' search.txt
+          grep -q 'Suggestions for "vieux qu": Le Vieux-Québec à pied' search.txt
+      - name: RAG
+        run: |
+          php examples/rag.php | tee rag.txt
+          grep -q '\[1\] Observer les baleines à Tadoussac' rag.txt
+
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest

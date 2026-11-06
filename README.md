@@ -315,6 +315,16 @@ string, a list of strings or `null` to drop the token), `AbstractTokenFilter`
 to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 `[term, offset]` pairs).
 
+## Examples
+
+Runnable examples (SQLite through PDO), tested in CI:
+
+- [Full-text search with plain SQL](docs/search-with-sql.md): inverted index in
+  two tables, BM25 ranking in one SQL query, highlighting, search-as-you-type
+  (`examples/search-with-sql.php`).
+- [Retrieval augmented generation](docs/rag.md): passages, keyword retrieval
+  and a prompt citing its sources, for any LLM (`examples/rag.php`).
+
 ## Performance
 
 `composer bench` runs the PHPBench benchmarks of `benchmarks/`. Indicative
