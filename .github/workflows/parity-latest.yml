@@ -37,7 +37,7 @@ jobs:
       matrix:
         elasticsearch: ${{ fromJSON(needs.versions.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start Elasticsearch
         run: |
           docker build -q -t tokenizer-engine-es --build-arg ES_VERSION=${{ matrix.elasticsearch }} tests/Parity
@@ -50,7 +50,7 @@ jobs:
           php-version: '8.4'
           extensions: mbstring, intl
           coverage: none
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Wait for Elasticsearch
         run: |
           for i in $(seq 1 60); do
