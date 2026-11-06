@@ -6,6 +6,24 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-06
+
+### Added
+- `Highlighting\TermMatcher`: finds where the terms of a query appear in a
+  text (same analyzer, or a distinct query analyzer), with offsets in the
+  original text and the text segments to wrap, skipping markup.
+- `OffsetMap`, `OffsetMappingCharacterFilterInterface` and
+  `TokenizerEngine::tokensAndOffsetMap()`.
+
+### Changed
+- Token offsets refer to the original text, before character filters, like
+  Elasticsearch (they referred to the filtered text). With `html_strip`, they
+  point into the HTML source.
+- `HTMLStripCharacterFilter` follows Lucene: the 29 HTML 4 inline elements are
+  removed, every other tag (unknown tags included) and `<script>`/`<style>`
+  elements become a line break, `&nbsp;` becomes a space.
+- The parity suite compares offsets with character filters too.
+
 ## [1.1.0] - 2026-11-06
 
 ### Added
@@ -131,7 +149,8 @@ Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 
 First release.
 
-[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/lalbert/tokenizer-engine/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/lalbert/tokenizer-engine/compare/0.0.1...1.0.0
 [0.0.1]: https://github.com/lalbert/tokenizer-engine/releases/tag/0.0.1

@@ -1,3 +1,15 @@
+# Upgrading from 1.1 to 1.2
+
+- Token offsets now refer to the original text, before character filters,
+  like Elasticsearch. Code that used offsets to cut the *filtered* text (for
+  example the output of `HTMLStripCharacterFilter::filter()`) must cut the
+  original text instead.
+- `HTMLStripCharacterFilter` replaces unknown tags, `<script>` and `<style>`
+  with a line break (they were removed) and `&nbsp;` with a space (it gave a
+  no-break space), like Elasticsearch.
+- Custom character filters that change the length of the text should
+  implement `OffsetMappingCharacterFilterInterface` to keep offsets right.
+
 # Upgrading from 0.0.1 to 1.0
 
 ## Platform

@@ -6,7 +6,8 @@ namespace TokenizerEngine;
 
 /**
  * A single term produced by the analysis chain, with its position in the
- * stream and its character offsets in the (character-filtered) input text.
+ * stream and its character offsets in the original text (before character
+ * filters, like Elasticsearch).
  *
  * Offsets are expressed in Unicode code points (not bytes) and are null when
  * the token was built from a bare string rather than produced by a tokenizer.
