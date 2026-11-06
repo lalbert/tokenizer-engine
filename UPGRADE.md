@@ -1,4 +1,4 @@
-# Upgrading from 1.1 to 1.2
+# Upgrading to the next version (unreleased)
 
 - Token offsets now refer to the original text, before character filters,
   like Elasticsearch. Code that used offsets to cut the *filtered* text (for

@@ -1,12 +1,12 @@
 # Changelog
 
 All notable changes to this project are documented in this file. The format
-follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
-project adheres to [Semantic Versioning](https://semver.org/).
+follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions
+follow the backward compatibility promise of the README (semantic versioning
+for the public API; analysis output may change in minor versions to match
+Elasticsearch more closely).
 
 ## [Unreleased]
-
-## [1.2.0] - 2026-11-06
 
 ### Added
 - `Highlighting\TermMatcher`: finds where the terms of a query appear in a
@@ -149,8 +149,7 @@ Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 
 First release.
 
-[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.2.0...HEAD
-[1.2.0]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...1.2.0
+[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...HEAD
 [1.1.0]: https://github.com/lalbert/tokenizer-engine/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/lalbert/tokenizer-engine/compare/0.0.1...1.0.0
 [0.0.1]: https://github.com/lalbert/tokenizer-engine/releases/tag/0.0.1

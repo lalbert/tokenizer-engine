@@ -368,6 +368,21 @@ composer analyse    # PHPStan
 composer cs         # PHP-CS-Fixer (dry run), composer cs-fix to apply
 ```
 
+## Backward compatibility promise
+
+- **Public API**: classes, interfaces, public methods and their signatures
+  follow [semantic versioning](https://semver.org/). A change that breaks
+  code using them only happens in a major version. Classes and methods marked
+  `@internal` (`TokenizerEngine\Util\*`) are not covered.
+- **Analysis output** (terms, positions, offsets, types): the goal of the
+  library is to produce the same output as Elasticsearch. A minor version may
+  change it **only to match Elasticsearch more closely** (a stemmer ported from
+  Lucene, a corrected offset...); such changes are listed under "Changed" in
+  `CHANGELOG.md` and explained in `UPGRADE.md`. Reindex the data analyzed with
+  the previous version when they affect you. Any other change of output is a
+  bug, or waits for a major version.
+- Patch versions only fix bugs, without changing the output of correct code.
+
 ## Releasing
 
 1. Prepare the changelog on a branch and open a pull request:
