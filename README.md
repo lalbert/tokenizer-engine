@@ -29,8 +29,9 @@ Requirements: PHP 8.2+ and `ext-mbstring`. Recommended:
 
 - `ext-intl`, for Unicode word segmentation (UAX #29) and ASCII folding with ICU;
   a pure PHP fallback is used otherwise;
-- `wamania/php-stemmer`, for Snowball stemming and the Dutch analyzer (English,
-  French, German, Spanish, Italian and Portuguese stemming are built in):
+- `wamania/php-stemmer`, for Snowball stemming and the Dutch, Swedish,
+  Norwegian, Danish, Finnish and Russian analyzers (English, French, German,
+  Spanish, Italian and Portuguese stemming are built in):
 
 ```bash
 composer require wamania/php-stemmer
@@ -56,7 +57,8 @@ Analyzers::fingerprint()->tokenize('paris, CAFE de, café');
 
 Built-in analyzers: `standard`, `simple`, `whitespace`, `keyword`, `stop`,
 `fingerprint`, `english`, `french`, `german`, `spanish`, `italian`,
-`portuguese`, `dutch` (`Analyzers::get('french')`).
+`portuguese`, `dutch`, `swedish`, `norwegian`, `danish`, `finnish`, `russian`
+(`Analyzers::get('french')`).
 
 ## Building your own analyzer
 
@@ -259,10 +261,11 @@ TextChunker::byTokens(Analyzers::standard(), maxTokens: 300, overlapTokens: 50)-
 | **Token filters** | | |
 | `LowercaseTokenFilter`, `UppercaseTokenFilter` | `lowercase`, `uppercase` | |
 | `AsciiFoldingTokenFilter` | `asciifolding` | optional locale rules (`de`: ä → ae) |
-| `StopTokenFilter` | `stop` | `_english_`, `_french_`, `_german_`, `_spanish_`, `_italian_`, `_portuguese_`, `_dutch_` |
+| `StopTokenFilter` | `stop` | `_english_`, `_french_`, `_german_`, `_spanish_`, `_italian_`, `_portuguese_`, `_dutch_`, `_swedish_`, `_norwegian_`, `_danish_`, `_finnish_`, `_russian_` |
 | `ElisionTokenFilter` | `elision` | French articles by default, handles `’` |
 | `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `english` / `porter`, `light_french`, `minimal_french`, `light_german`, `light_spanish`, `light_italian`, `light_portuguese` (Lucene ports), Snowball otherwise |
 | `GermanNormalizationTokenFilter` | `german_normalization` | |
+| `ScandinavianFoldingTokenFilter`, `ScandinavianNormalizationTokenFilter` | `scandinavian_folding`, `scandinavian_normalization` | |
 | `KeywordMarkerTokenFilter` | `keyword_marker` | protects words from stemming |
 | `StemmerOverrideTokenFilter` | `stemmer_override` | |
 | `ShingleTokenFilter` | `shingle` | |
@@ -325,16 +328,18 @@ the filtering itself.
 
 ## Parity with Elasticsearch
 
-`tests/Parity` sends a corpus of 13 texts (English, French, German, Spanish,
-Italian, Portuguese, Dutch, URLs, paths, HTML, digits...) to this library and
-to the `_analyze` API of a real Elasticsearch node (with the ICU and phonetic
-plugins), and compares terms, positions and offsets for 91 configurations:
-every built-in analyzer, tokenizer, character filter, token filter and
-normalizer listed above, about 1,150 comparisons. The CI runs it against Elasticsearch 8.19 and 9.5;
+`tests/Parity` sends a corpus of 19 texts (12 languages, URLs, paths, HTML,
+digits...) to this library and to the `_analyze` API of a real Elasticsearch
+node (with the ICU and phonetic plugins), and compares terms, positions and
+offsets for 98 configurations: every built-in analyzer, tokenizer, character
+filter, token filter and normalizer listed above, about 1,800 comparisons. The
+CI runs it against Elasticsearch 8.19 and 9.5;
 see `tests/Parity/README.md` to run it locally.
 
 Every language analyzer (English, French, German, Spanish, Italian,
-Portuguese, Dutch) and normalizer matches exactly. Known differences, all
+Portuguese, Dutch, Swedish, Norwegian, Danish, Finnish, Russian) and
+normalizer matches exactly. Besides the pinned versions, a weekly workflow
+compares the output with the latest Elasticsearch 8.x and 9.x releases. Known differences, all
 covered by the suite in the scope below:
 
 - Phonetic encoders fold accented letters before encoding ("Élodie" gives

@@ -15,6 +15,14 @@ Elasticsearch more closely).
 - `OffsetMap`, `OffsetMappingCharacterFilterInterface` and
   `TokenizerEngine::tokensAndOffsetMap()`.
 - PHPBench benchmarks (`composer bench`), run in CI for information.
+- Swedish, Norwegian, Danish, Finnish and Russian analyzers and stop word lists
+  (`_swedish_`, `_norwegian_`, `_danish_`, `_finnish_`, `_russian_`), identical
+  to Elasticsearch on the parity corpus.
+- `ScandinavianFoldingTokenFilter` (`scandinavian_folding`) and
+  `ScandinavianNormalizationTokenFilter` (`scandinavian_normalization`), ports
+  of Lucene.
+- Dependabot, and a weekly workflow comparing the output with the latest
+  Elasticsearch 8.x and 9.x releases (opens an issue on differences).
 
 ### Changed
 - Token offsets refer to the original text, before character filters, like
@@ -25,6 +33,10 @@ Elasticsearch more closely).
   elements become a line break, `&nbsp;` becomes a space.
 - The parity suite compares offsets with character filters too.
 - `WordDelimiterTokenFilter` caches character classes (about 15 % faster).
+
+### Fixed
+- Snowball stemmers no longer change words ending with a digit (the Finnish
+  stemmer of `wamania/php-stemmer` turned "sd500" into "sd50"), like Lucene.
 
 ## [1.1.0] - 2026-11-06
 

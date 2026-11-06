@@ -234,6 +234,8 @@ final class ComponentRegistry
             })
             ->addTokenFilter('decimal_digit', static fn () => new F\DecimalDigitTokenFilter())
             ->addTokenFilter('german_normalization', static fn () => new F\GermanNormalizationTokenFilter())
+            ->addTokenFilter('scandinavian_folding', static fn () => new F\ScandinavianFoldingTokenFilter())
+            ->addTokenFilter('scandinavian_normalization', static fn () => new F\ScandinavianNormalizationTokenFilter())
             ->addTokenFilter('icu_normalizer', static fn (Params $p) => new F\IcuNormalizerTokenFilter(
                 (string) $p->string('name', 'nfkc_cf'),
                 (string) $p->string('mode', 'compose'),
