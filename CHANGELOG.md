@@ -8,6 +8,8 @@ Elasticsearch more closely).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-06
+
 ### Added
 - `Highlighting\TermMatcher`: finds where the terms of a query appear in a
   text (same analyzer, or a distinct query analyzer), with offsets in the
@@ -172,7 +174,8 @@ Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 
 First release.
 
-[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/lalbert/tokenizer-engine/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/lalbert/tokenizer-engine/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/lalbert/tokenizer-engine/compare/0.0.1...1.0.0
 [0.0.1]: https://github.com/lalbert/tokenizer-engine/releases/tag/0.0.1
