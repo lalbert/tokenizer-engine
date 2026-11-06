@@ -1,36 +1,42 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-abstract class AbstractNGramTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+abstract class AbstractNGramTokenFilter extends AbstractTermTokenFilter
 {
-    protected $minGram = 1;
-    protected $maxGram = 2;
-    private $preserveOriginal = true;
-
-    public function __construct($minGram = 1, $maxGram = 2, $preserveOriginal = true)
-    {
-        $this->minGram = (int) $minGram;
-        $this->maxGram = (int) $maxGram;
-        $this->preserveOriginal = (bool) $preserveOriginal;
-
-        if ($this->minGram < 1 || $this->maxGram < 1) {
+    public function __construct(
+        protected readonly int $minGram = 1,
+        protected readonly int $maxGram = 2,
+        private readonly bool $preserveOriginal = true,
+    ) {
+        if ($minGram < 1 || $maxGram < 1) {
             throw new \InvalidArgumentException('minGram and maxGram must be greater than 0.');
         }
 
-        if ($this->minGram > $this->maxGram) {
-            throw new \InvalidArgumentException('maxGram must be greater than minGram.');
+        if ($minGram > $maxGram) {
+            throw new \InvalidArgumentException('maxGram must be greater than or equal to minGram.');
         }
     }
 
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): array
     {
-        $_tokens = [];
+        $nGrams = $this->nGrams(mb_str_split($term, 1, 'UTF-8'));
 
-        foreach ((array) $tokens as $token) {
-            $_tokens = array_merge($_tokens, $this->preserveOriginal ? [$token] : [], $this->nGram($token));
+        if ($this->preserveOriginal && !\in_array($term, $nGrams, true)) {
+            array_unshift($nGrams, $term);
         }
 
-        return $_tokens;
+        return $nGrams;
     }
+
+    /**
+     * @param list<string> $chars
+     *
+     * @return list<string>
+     */
+    abstract protected function nGrams(array $chars): array;
 }

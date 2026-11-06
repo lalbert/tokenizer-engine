@@ -1,5 +1,321 @@
 # TokenizerEngine
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/de8cb6aa066a43bb95f7ccaa9d2847c5)](https://www.codacy.com/app/lalbert/tokenizer-engine?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=lalbert/tokenizer-engine&amp;utm_campaign=badger)
+[![CI](https://github.com/lalbert/tokenizer-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/lalbert/tokenizer-engine/actions/workflows/ci.yml)
 
-Tokenize string like Elasticsearch
+Elasticsearch-like text analysis in pure PHP: character filters, tokenizers
+and token filters, chained into analyzers. UTF-8 aware, with positions and
+offsets, and able to load the `analysis` section of Elasticsearch index
+settings.
+
+Typical uses, without running a search cluster:
+
+- normalize and deduplicate strings (names, addresses, products);
+- autocompletion and fuzzy matching on small datasets stored in SQL;
+- detect near-duplicates (fingerprint, phonetic codes, MinHash);
+- split documents into passages for embeddings / RAG (`TextChunker`);
+- check offline what an Elasticsearch analyzer configuration produces.
+
+> This library is not affiliated with Elastic. It mirrors the behaviour of
+> Elasticsearch's analysis components; results can differ in edge cases
+> (see [Differences with Elasticsearch](#differences-with-elasticsearch)).
+
+## Installation
+
+```bash
+composer require lalbert/tokenizer-engine
+```
+
+Requirements: PHP 8.2+ and `ext-mbstring`. Recommended:
+
+- `ext-intl`, for Unicode word segmentation (UAX #29) and ASCII folding with ICU;
+  a pure PHP fallback is used otherwise;
+- `wamania/php-stemmer`, for Snowball stemming and the non-French language
+  analyzers (French stemming is built in):
+
+```bash
+composer require wamania/php-stemmer
+```
+
+## Quick start
+
+```php
+use TokenizerEngine\Analyzers;
+
+Analyzers::french()->tokenize('L’école des chevaux, c’était hier !');
+// ['ecol', 'cheval', 'hier']  (same output as Elasticsearch's french analyzer)
+
+Analyzers::french(stemExclusion: ['chevaux'])->tokenize('Les chevaux');
+// ['chevaux']
+
+Analyzers::english()->tokenize("The QUICK brown foxes jumped over John's lazy dogs");
+// ['quick', 'brown', 'fox', 'jump', 'over', 'john', 'lazi', 'dog']
+
+Analyzers::fingerprint()->tokenize('paris, CAFE de, café');
+// ['cafe de paris']  (same as for "Café de Paris")
+```
+
+Built-in analyzers: `standard`, `simple`, `whitespace`, `keyword`, `stop`,
+`fingerprint`, `english`, `french`, `german`, `spanish`, `italian`,
+`portuguese`, `dutch` (`Analyzers::get('french')`).
+
+## Building your own analyzer
+
+```php
+use TokenizerEngine\TokenizerEngine;
+use TokenizerEngine\CharacterFilter\HTMLStripCharacterFilter;
+use TokenizerEngine\Tokenizer\StandardTokenizer;
+use TokenizerEngine\TokenFilter\{AsciiFoldingTokenFilter, EdgeNGramTokenFilter, LowercaseTokenFilter};
+
+$autocomplete = (new TokenizerEngine())
+    ->addCharacterFilter(new HTMLStripCharacterFilter())
+    ->addTokenizer(new StandardTokenizer())
+    ->addTokenFilter(new LowercaseTokenFilter())
+    ->addTokenFilter(new AsciiFoldingTokenFilter())
+    ->addTokenFilter(new EdgeNGramTokenFilter(minGram: 2, maxGram: 10, preserveOriginal: false));
+
+$autocomplete->tokenize('<b>Élan</b> vital');
+// ['el', 'ela', 'elan', 'vi', 'vit', 'vita', 'vital']
+```
+
+The array constructor of previous versions still works:
+
+```php
+new TokenizerEngine([
+    'characterFilters' => [new HTMLStripCharacterFilter()],
+    'tokenizers' => [new StandardTokenizer()],
+    'tokenFilters' => [new LowercaseTokenFilter()],
+]);
+```
+
+## Positions and offsets
+
+`tokens()` returns `Token` objects (immutable) with the term, its position and
+its offsets in the text, in characters (Unicode code points). `toArray()`
+gives the same shape as an entry of Elasticsearch's `_analyze` response.
+
+```php
+foreach (Analyzers::standard()->tokens('Un été à Montréal') as $token) {
+    echo json_encode($token->toArray()), "\n";
+}
+// {"token":"un","start_offset":0,"end_offset":2,"type":"<ALPHANUM>","position":0}
+// {"token":"été","start_offset":3,"end_offset":6,"type":"<ALPHANUM>","position":1}
+// ...
+```
+
+Offsets make highlighting straightforward:
+
+```php
+$text = 'Un été à Montréal';
+foreach ($analyzer->tokens($text) as $token) {
+    if ('montreal' === $token->term) {
+        $match = mb_substr($text, $token->startOffset, $token->endOffset - $token->startOffset); // "Montréal"
+    }
+}
+```
+
+`analyze()` returns the output of every step, which is handy to debug a chain.
+
+## Using Elasticsearch settings
+
+The same JSON can configure your index and your PHP code:
+
+```php
+use TokenizerEngine\TokenizerEngine;
+use TokenizerEngine\Elasticsearch\AnalysisConfig;
+
+$json = <<<'JSON'
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "autocomplete_filter": { "type": "edge_ngram", "min_gram": 2, "max_gram": 10 }
+      },
+      "analyzer": {
+        "autocomplete": {
+          "type": "custom",
+          "char_filter": ["html_strip"],
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "autocomplete_filter"]
+        }
+      }
+    }
+  }
+}
+JSON;
+
+$analyzer = TokenizerEngine::fromElasticsearch($json, 'autocomplete');
+
+// or, to inspect the configuration or load it from a file:
+$config = AnalysisConfig::fromFile('index-settings.json', strict: true);
+$config->analyzerNames();
+$config->analyzer('autocomplete');
+```
+
+Unsupported parameters are ignored by default; with `strict: true` they raise
+an exception. Custom components can be registered:
+
+```php
+use TokenizerEngine\Elasticsearch\{ComponentRegistry, Params};
+
+$registry = ComponentRegistry::default()
+    ->addTokenFilter('my_filter', fn (Params $p) => new MyFilter($p->int('size', 3)));
+
+$config = new AnalysisConfig($settings, $registry);
+```
+
+## Near-duplicates: phonetic codes and MinHash
+
+```php
+use TokenizerEngine\TokenFilter\{MinHashTokenFilter, PhoneticTokenFilter, ShingleTokenFilter};
+
+(new PhoneticTokenFilter('soundex2'))->filter(['Lefèvre', 'Lefeuvre']);
+// ['LFVR', 'LFVR']
+
+$signature = (new TokenizerEngine())
+    ->addTokenizer(new StandardTokenizer())
+    ->addTokenFilter(new LowercaseTokenFilter())
+    ->addTokenFilter(new ShingleTokenFilter(2, 2, outputUnigrams: false))
+    ->addTokenFilter(new MinHashTokenFilter(256));
+
+MinHashTokenFilter::similarity($signature->tokenize($textA), $signature->tokenize($textB));
+// 0.71 (estimated Jaccard similarity of the word pairs)
+```
+
+Phonetic encoders: `soundex`, `refined_soundex`, `metaphone` (English),
+`cologne` (German, Kölner Phonetik), `soundex_fr` (Soundex with the French
+letter table), `soundex2` (French, Frédéric BROUARD). Implement
+`PhoneticEncoderInterface` to plug any other algorithm.
+
+## Splitting documents for RAG
+
+`TextChunker` is not an Elasticsearch component: it splits a text into
+passages of a maximum size, at sentence boundaries when possible (then words,
+then characters), with an optional overlap. Each `Chunk` keeps its offsets in
+the original text.
+
+```php
+use TokenizerEngine\Chunker\TextChunker;
+
+// At most 1000 characters per passage, 200 characters of overlap.
+foreach ((new TextChunker(1000, 200, locale: 'fr'))->chunk($document) as $chunk) {
+    $chunk->text; $chunk->startOffset; $chunk->endOffset; $chunk->size;
+}
+
+// Sizes measured in tokens of an analyzer, or with any callable
+// (e.g. an LLM token counter): new TextChunker(512, 64, fn (string $s): int => $counter->count($s)).
+TextChunker::byTokens(Analyzers::standard(), maxTokens: 300, overlapTokens: 50)->chunk($document);
+```
+
+## Components
+
+| Class | Elasticsearch type | Notes |
+|---|---|---|
+| **Character filters** | | |
+| `HTMLStripCharacterFilter` | `html_strip` | keeps words apart, decodes entities, drops `<script>`/`<style>` |
+| `MappingCharacterFilter` | `mapping` | |
+| `PatternReplaceCharacterFilter` | `pattern_replace` | |
+| `IcuNormalizerCharacterFilter` | `icu_normalizer` (ICU plugin) | requires ext-intl |
+| **Tokenizers** | | |
+| `StandardTokenizer` | `standard` | UAX #29 via ICU, regex fallback |
+| `WhitespaceTokenizer` | `whitespace` | |
+| `LetterTokenizer` | `letter` | |
+| `KeywordTokenizer` | `keyword` | |
+| `PatternTokenizer` | `pattern` | |
+| `UaxUrlEmailTokenizer` | `uax_url_email` | URLs need a scheme or `www.` |
+| `NGramTokenizer`, `EdgeNGramTokenizer` | `ngram`, `edge_ngram` | `token_chars` supported |
+| `PathHierarchyTokenizer` | `path_hierarchy` | |
+| `CharGroupTokenizer` | `char_group` | |
+| **Token filters** | | |
+| `LowercaseTokenFilter`, `UppercaseTokenFilter` | `lowercase`, `uppercase` | |
+| `AsciiFoldingTokenFilter` | `asciifolding` | optional locale rules (`de`: ä → ae) |
+| `StopTokenFilter` | `stop` | `_english_`, `_french_`, `_german_`, `_spanish_`, `_italian_`, `_portuguese_`, `_dutch_` |
+| `ElisionTokenFilter` | `elision` | French articles by default, handles `’` |
+| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `light_french` / `minimal_french` (Lucene ports), Snowball otherwise |
+| `KeywordMarkerTokenFilter` | `keyword_marker` | protects words from stemming |
+| `StemmerOverrideTokenFilter` | `stemmer_override` | |
+| `ShingleTokenFilter` | `shingle` | |
+| `PhoneticTokenFilter` | `phonetic` (phonetic plugin) | encoders listed above |
+| `MinHashTokenFilter` | `min_hash` | different algorithm (see Differences) |
+| `IcuNormalizerTokenFilter`, `IcuFoldingTokenFilter` | `icu_normalizer`, `icu_folding` (ICU plugin) | require ext-intl |
+| `DecimalDigitTokenFilter` | `decimal_digit` | |
+| `KeepWordsTokenFilter`, `KeepTypesTokenFilter` | `keep`, `keep_types` | |
+| `PatternReplaceTokenFilter`, `PatternCaptureTokenFilter` | `pattern_replace`, `pattern_capture` | |
+| `MultiplexerTokenFilter` | `multiplexer` | |
+| `ConditionalTokenFilter` | `condition` | PHP callable instead of a Painless script (not loadable from settings) |
+| `EnglishPossessiveTokenFilter` | `stemmer` (`possessive_english`) | |
+| `SynonymTokenFilter` | `synonym`, `synonym_graph` | Solr format, multi-word |
+| `NGramTokenFilter`, `EdgeNGramTokenFilter` | `ngram`, `edge_ngram` | |
+| `WordDelimiterTokenFilter` | `word_delimiter` | |
+| `FingerprintTokenFilter` | `fingerprint` | |
+| `UniqueTokenFilter` | `unique` | |
+| `LengthTokenFilter` | `length` | |
+| `LimitTokenCountTokenFilter` | `limit` | |
+| `TruncateTokenFilter` | `truncate` | |
+| `TrimTokenFilter` | `trim` | |
+| `ReverseTokenFilter` | `reverse` | |
+| `ApostropheTokenFilter` | `apostrophe` | |
+| `AlphaNumericTokenFilter` | none | removes non letters/digits |
+| `EmptyTokenFilter` | none | removes empty tokens |
+| `LevenshteinTokenFilter` | none (`levenshtein` in configs) | closest word of a dictionary |
+
+Every token filter accepts either a list of strings (and returns strings) or a
+list of `Token` objects (and returns tokens, keeping positions and offsets), so
+they can also be used on their own:
+
+```php
+(new StopTokenFilter('_french_'))->filter(['le', 'chat', 'et', 'la', 'souris']);
+// ['chat', 'souris']
+```
+
+### Writing a component
+
+Extend `AbstractTermTokenFilter` for a filter working term by term (return a
+string, a list of strings or `null` to drop the token), `AbstractTokenFilter`
+to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
+`[term, offset]` pairs).
+
+## Differences with Elasticsearch
+
+- French stemming (`light_french`, `minimal_french`) is a port of Lucene's code
+  and gives the same stems as Elasticsearch. Other languages use the Snowball
+  algorithms, while Elasticsearch uses "light" stemmers for German, Spanish,
+  Italian and Portuguese, so stems can differ there.
+- `min_hash` uses k seeded hash functions instead of Elasticsearch's bucket
+  approach: signatures are not interchangeable with Elasticsearch's.
+- `uax_url_email` does not recognize bare domain names (`example.com`).
+- Offsets are counted in Unicode code points (Elasticsearch counts UTF-16 code
+  units) and refer to the text after character filters (Elasticsearch maps them
+  back to the original text).
+- Filters that split a token (n-grams, word delimiter, synonyms) emit
+  sub-tokens at the position of the original token instead of building a token
+  graph.
+- Regular expressions are PCRE, not Java.
+- Not implemented: normalizers, `hunspell`, Painless scripts, ICU tokenizer
+  and transforms, Beider-Morse and Double Metaphone encoders, CJK specific
+  analysis.
+
+## Data sources and licenses
+
+- Stop words: English list from Apache Lucene (Apache-2.0, the list
+  Elasticsearch uses for `_english_`); other languages from the
+  [Snowball project](https://snowballstem.org/) (BSD-3-Clause). See
+  `resources/stop-words/`.
+- French light and minimal stemmers: ports of Apache Lucene (Apache-2.0),
+  algorithms by Jacques SAVOY (BSD); see the headers of `src/Stemmer/`.
+- Soundex2: implemented from the description published by Frédéric BROUARD
+  (https://sqlpro.developpez.com/cours/soundex/), which states "copyright
+  Frédéric BROUARD". The code here is an independent implementation.
+- ASCII folding fallback table derived from WordPress' `remove_accents()`.
+
+## Development
+
+```bash
+composer install
+composer test       # PHPUnit
+composer analyse    # PHPStan
+composer cs         # PHP-CS-Fixer (dry run), composer cs-fix to apply
+```
+
+## License
+
+MIT, see [LICENSE](LICENSE).

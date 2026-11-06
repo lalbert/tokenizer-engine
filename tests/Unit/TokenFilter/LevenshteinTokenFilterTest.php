@@ -1,28 +1,35 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\Tests\Unit\TokenFilter;
 
+use PHPUnit\Framework\TestCase;
 use TokenizerEngine\TokenFilter\LevenshteinTokenFilter;
 
-class LevenshteinTokenFilterTest extends \PHPUnit_Framework_TestCase
+final class LevenshteinTokenFilterTest extends TestCase
 {
-    public function testFilter()
+    private const TOKENS = ['carot', 'carott', 'pari', 'patis', 'equal'];
+    private const WORDS = ['carrot', 'paris', 'equal'];
+
+    public function testFilter(): void
     {
-        $tokens = ['carot', 'carott', 'pari', 'patis', 'equal'];
-        $words = ['carrot', 'paris', 'equal'];
-
-        $filter = new LevenshteinTokenFilter($words);
-
-        $this->assertEquals(['carrot', 'carrot', 'paris', 'paris', 'equal'], array_values($filter->filter($tokens)));
+        self::assertSame(['carrot', 'carrot', 'paris', 'paris', 'equal'], (new LevenshteinTokenFilter(self::WORDS))->filter(self::TOKENS));
     }
 
-    public function testMaxDistance()
+    public function testMaxDistance(): void
     {
-        $tokens = ['carot', 'carott', 'pari', 'patis', 'equal'];
-        $words = ['carrot', 'paris', 'equal'];
+        self::assertSame(['carrot', 'carott', 'paris', 'paris', 'equal'], (new LevenshteinTokenFilter(self::WORDS, 1))->filter(self::TOKENS));
+    }
 
-        $filter = new LevenshteinTokenFilter($words, 1);
+    public function testDistanceIsComputedOnCharacters(): void
+    {
+        // "Bezier" vs "Bézier" is one edit, not two (bytes).
+        self::assertSame(['Bézier'], (new LevenshteinTokenFilter(['Bézier'], 1))->filter(['Bezier']));
+    }
 
-        $this->assertEquals(['carrot', 'carott', 'paris', 'paris', 'equal'], array_values($filter->filter($tokens)));
+    public function testFirstWordWinsOnTies(): void
+    {
+        self::assertSame(['cat'], (new LevenshteinTokenFilter(['cat', 'car']))->filter(['cax']));
     }
 }

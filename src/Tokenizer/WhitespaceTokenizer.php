@@ -1,17 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\Tokenizer;
 
-class WhitespaceTokenizer implements TokenizerInterface
+/**
+ * Splits text on Unicode whitespace, like Elasticsearch's `whitespace` tokenizer.
+ */
+final class WhitespaceTokenizer extends AbstractTokenizer
 {
-    public function tokenize($data)
+    public function __construct(private readonly int $maxTokenLength = 255)
     {
-        $tokens = [];
-
-        foreach ((array) $data as $string) {
-            $tokens = array_merge($tokens, preg_split('/\s+/', $string, -1, PREG_SPLIT_NO_EMPTY));
+        if ($maxTokenLength < 1) {
+            throw new \InvalidArgumentException('maxTokenLength must be greater than 0.');
         }
+    }
 
-        return $tokens;
+    protected function split(string $text): iterable
+    {
+        return self::limitLength(self::matches('/\S+/u', $text), $this->maxTokenLength);
     }
 }

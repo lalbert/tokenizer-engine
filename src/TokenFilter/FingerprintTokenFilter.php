@@ -1,29 +1,48 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class FingerprintTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Sorts and deduplicates the terms, then concatenates them into a single
+ * token, like Elasticsearch's `fingerprint` filter (OpenRefine clustering).
+ * If the result is longer than $maxOutputSize, no token is emitted.
+ */
+final class FingerprintTokenFilter extends AbstractTokenFilter
 {
-    private $separator = ' ';
-    private $maxOutputSize = 255;
-
-    public function __construct($separator = ' ', $maxOutputSize = 255)
+    public function __construct(private readonly string $separator = ' ', private readonly int $maxOutputSize = 255)
     {
-        $this->separator = (string) $separator;
-        $this->maxOutputSize = (int) $maxOutputSize;
+        if (1 !== mb_strlen($separator, 'UTF-8')) {
+            throw new \InvalidArgumentException(\sprintf('Setting [separator] must be a single, non-null character. [%s] was provided.', $separator));
+        }
 
-        if (mb_strlen($this->separator) > 1) {
-            throw new \InvalidArgumentException(sprintf('Setting [separator] must be a single, non-null character. [%s] was provided.', $this->separator));
+        if ($maxOutputSize < 1) {
+            throw new \InvalidArgumentException('maxOutputSize must be greater than 0.');
         }
     }
 
-    public function filter(array $tokens)
+    protected function process(array $tokens): array
     {
-        $tokens = array_unique($tokens);
-        sort($tokens);
+        $terms = array_values(array_unique(array_map(static fn (Token $token): string => $token->term, $tokens)));
+        sort($terms, \SORT_STRING);
 
-        $fingerprint = implode($this->separator, $tokens);
+        $fingerprint = implode($this->separator, $terms);
+        if (mb_strlen($fingerprint, 'UTF-8') > $this->maxOutputSize) {
+            return [];
+        }
 
-        return mb_strlen($fingerprint) > $this->maxOutputSize ? [] : [$fingerprint];
+        $starts = array_filter(array_map(static fn (Token $t): ?int => $t->startOffset, $tokens), 'is_int');
+        $ends = array_filter(array_map(static fn (Token $t): ?int => $t->endOffset, $tokens), 'is_int');
+
+        return [new Token(
+            $fingerprint,
+            0,
+            [] === $starts ? null : min($starts),
+            [] === $ends ? null : max($ends),
+            'fingerprint',
+        )];
     }
 }

@@ -1,0 +1,37 @@
+# English stop words used by Elasticsearch's "_english_" list
+# (Lucene EnglishAnalyzer.ENGLISH_STOP_WORDS_SET).
+# Source: https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/en/EnglishAnalyzer.java
+# License: Apache-2.0, see resources/stop-words/LICENSE-lucene.txt
+a
+an
+and
+are
+as
+at
+be
+but
+by
+for
+if
+in
+into
+is
+it
+no
+not
+of
+on
+or
+such
+that
+the
+their
+then
+there
+these
+they
+this
+to
+was
+will
+with

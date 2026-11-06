@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "analysis": {
+      "char_filter": {
+        "emoticons": {
+          "type": "mapping",
+          "mappings": [":) => _happy_", ":( => _sad_"]
+        }
+      },
+      "tokenizer": {
+        "comma": { "type": "pattern", "pattern": "," }
+      },
+      "filter": {
+        "french_elision": {
+          "type": "elision",
+          "articles_case": true,
+          "articles": ["l", "m", "t", "qu", "n", "s", "j", "d", "c", "jusqu", "quoiqu", "lorsqu", "puisqu"]
+        },
+        "french_stop": { "type": "stop", "stopwords": "_french_" },
+        "french_stemmer": { "type": "stemmer", "language": "light_french" },
+        "autocomplete_filter": { "type": "edge_ngram", "min_gram": "2", "max_gram": 10 },
+        "my_synonyms": { "type": "synonym", "synonyms": ["tgv, train"] }
+      },
+      "analyzer": {
+        "rebuilt_french": {
+          "tokenizer": "standard",
+          "filter": ["french_elision", "lowercase", "french_stop", "french_stemmer"]
+        },
+        "autocomplete": {
+          "type": "custom",
+          "char_filter": ["html_strip", "emoticons"],
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "autocomplete_filter"]
+        },
+        "csv": { "tokenizer": "comma", "filter": ["trim", "my_synonyms"] },
+        "my_standard": { "type": "standard", "stopwords": "_english_", "max_token_length": 5 },
+        "my_french": { "type": "french" }
+      }
+    }
+  }
+}

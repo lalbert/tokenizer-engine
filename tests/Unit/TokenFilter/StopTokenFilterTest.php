@@ -1,73 +1,91 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\Tests\Unit\TokenFilter;
 
+use PHPUnit\Framework\TestCase;
 use TokenizerEngine\TokenFilter\StopTokenFilter;
 
-class StopTokenFilterTest extends \PHPUnit_Framework_TestCase
+final class StopTokenFilterTest extends TestCase
 {
-    /**
-     * English default stop words.
-     */
-    public function testDefault()
-    {
-        $tokens = ['foo', 'and', 'et', 'bar'];
-        $filter = new StopTokenFilter();
+    private const TOKENS = ['foo', 'and', 'et', 'bar'];
 
-        $this->assertEquals(['foo', 'et', 'bar'], array_values($filter->filter($tokens)));
+    public function testEnglishByDefault(): void
+    {
+        self::assertSame(['foo', 'et', 'bar'], (new StopTokenFilter())->filter(self::TOKENS));
     }
 
-    public function testFr()
+    public function testFrench(): void
     {
-        $tokens = ['foo', 'and', 'et', 'bar'];
-        $filter = new StopTokenFilter('_french_');
-
-        $this->assertEquals(['foo', 'and', 'bar'], array_values($filter->filter($tokens)));
+        self::assertSame(['foo', 'and', 'bar'], (new StopTokenFilter('_french_'))->filter(self::TOKENS));
     }
 
-    public function testNoneStopWords()
+    public function testNone(): void
     {
-        $tokens = ['foo', 'and', 'et', 'bar'];
-        $filter = new StopTokenFilter('_none_');
-
-        $this->assertEquals(['foo', 'and', 'et', 'bar'], array_values($filter->filter($tokens)));
+        self::assertSame(self::TOKENS, (new StopTokenFilter('_none_'))->filter(self::TOKENS));
     }
 
-    public function testCustomStopWords()
+    public function testCustomList(): void
     {
-        $tokens = ['foo', 'and', 'et', 'bar'];
-        $filter = new StopTokenFilter(['foo', 'bar']);
-
-        $this->assertEquals(['and', 'et'], array_values($filter->filter($tokens)));
+        self::assertSame(['and', 'et'], (new StopTokenFilter(['foo', 'bar']))->filter(self::TOKENS));
     }
 
-    public function testCustomStopWordsFile()
+    public function testCustomFile(): void
     {
-        $tokens = ['foo', 'and', 'et', 'bar'];
-        $filename = __DIR__.'/../../Fixtures/customStopWords.txt';
-        $filter = new StopTokenFilter(null, $filename);
-
-        $this->assertEquals(['and', 'et'], array_values($filter->filter($tokens)));
+        self::assertSame(['and', 'et'], (new StopTokenFilter(null, __DIR__.'/../../Fixtures/customStopWords.txt'))->filter(self::TOKENS));
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessageRegExp /^Filename ".*" does not exists.$/
-     */
-    public function testCustomStopWordFileNotExists()
+    public function testMissingFile(): void
     {
-        $filename = __DIR__.'/../../Fixtures/notExists.txt';
-        new StopTokenFilter(null, $filename);
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/^Filename ".*" does not exist\.$/');
+        new StopTokenFilter(null, __DIR__.'/../../Fixtures/notExists.txt');
     }
 
-    public function testIgnoreCase()
+    public function testUnknownList(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Unknown stop words list "_klingon_"/');
+        new StopTokenFilter('_klingon_');
+    }
+
+    public function testIgnoreCase(): void
     {
         $tokens = ['foo', 'and', 'et', 'bar', 'AND'];
 
-        $filter = new StopTokenFilter();
-        $this->assertEquals(['foo', 'et', 'bar', 'AND'], array_values($filter->filter($tokens)));
+        self::assertSame(['foo', 'et', 'bar', 'AND'], (new StopTokenFilter())->filter($tokens));
+        self::assertSame(['foo', 'et', 'bar'], (new StopTokenFilter('_english_', null, true))->filter($tokens));
+    }
 
-        $filter = new StopTokenFilter('_english_', null, true);
-        $this->assertEquals(['foo', 'et', 'bar'], array_values($filter->filter($tokens)));
+    public function testWholeTermsOnly(): void
+    {
+        self::assertSame(['the-end', 'theory'], (new StopTokenFilter())->filter(['the-end', 'theory']));
+    }
+
+    public function testRemoveTrailing(): void
+    {
+        self::assertSame(['foo'], (new StopTokenFilter())->filter(['foo', 'the']));
+        self::assertSame(['foo', 'the'], (new StopTokenFilter(removeTrailing: false))->filter(['foo', 'and', 'the']));
+    }
+
+    public function testAllPredefinedListsLoad(): void
+    {
+        foreach (StopTokenFilter::availableLists() as $name) {
+            $words = StopTokenFilter::predefined($name);
+            if ('_none_' !== $name) {
+                self::assertGreaterThan(20, \count($words), $name);
+                self::assertNotContains('|', $words, $name);
+            }
+        }
+
+        self::assertContains('_spanish_', StopTokenFilter::availableLists());
+    }
+
+    public function testFrenchListIsUtf8(): void
+    {
+        self::assertContains('même', StopTokenFilter::predefined('_french_'));
+        // Snowball deliberately omits "été" (homonym of "summer").
+        self::assertNotContains('été', StopTokenFilter::predefined('_french_'));
     }
 }

@@ -1,13 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\CharacterFilter;
 
 interface CharacterFilterInterface
 {
-    /**
-     * @param string $string
-     *
-     * @return string
-     */
-    public function filter($string);
+    public function filter(string $text): string;
 }

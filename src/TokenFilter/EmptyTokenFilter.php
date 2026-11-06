@@ -1,11 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class EmptyTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Removes empty tokens (but keeps "0").
+ */
+final class EmptyTokenFilter extends AbstractTermTokenFilter
 {
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): ?string
     {
-        return array_filter((array) $tokens);
+        return '' === $term ? null : $term;
     }
 }

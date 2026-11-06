@@ -1,11 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class TrimTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Removes leading and trailing Unicode whitespace, like Elasticsearch's
+ * `trim` filter.
+ */
+final class TrimTokenFilter extends AbstractTermTokenFilter
 {
-    public function filter(array $tokens)
+    protected function filterTerm(string $term, Token $token): string
     {
-        return array_map('trim', (array) $tokens);
+        return (string) preg_replace('/^[\s\x{FEFF}]+|[\s\x{FEFF}]+$/u', '', $term);
     }
 }

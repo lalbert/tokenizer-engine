@@ -1,0 +1,3 @@
+# Solr synonyms format
+voiture, automobile, auto
+tgv => tgv, train à grande vitesse

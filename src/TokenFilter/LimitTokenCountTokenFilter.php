@@ -1,21 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class LimitTokenCountTokenFilter implements TokenFilterInterface
+/**
+ * Keeps only the first $maxTokenCount tokens, like Elasticsearch's `limit`
+ * filter.
+ */
+final class LimitTokenCountTokenFilter extends AbstractTokenFilter
 {
-    private $maxTokenCount = 1;
-
-    public function __construct($maxTokenCount = 1)
+    public function __construct(private readonly int $maxTokenCount = 1)
     {
-        $this->maxTokenCount = (int) $maxTokenCount;
-        if ($this->maxTokenCount <= 0) {
+        if ($maxTokenCount <= 0) {
             throw new \InvalidArgumentException('$maxTokenCount must be greater than zero.');
         }
     }
 
-    public function filter(array $tokens)
+    protected function process(array $tokens): array
     {
-        return array_slice((array) $tokens, 0, $this->maxTokenCount);
+        return \array_slice($tokens, 0, $this->maxTokenCount);
     }
 }

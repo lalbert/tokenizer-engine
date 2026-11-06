@@ -1,223 +1,200 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class WordDelimiterTokenFilter implements TokenFilterInterface
+use TokenizerEngine\Token;
+
+/**
+ * Splits terms on non alphanumeric characters, case changes and letter/digit
+ * transitions ("PowerShot-500" gives Power, Shot, 500), like Elasticsearch's
+ * `word_delimiter` filter. Unicode aware ("ÉcoleNormale" gives École, Normale).
+ *
+ * Sub-tokens keep the position of the original token; their offsets are
+ * narrowed to the part when the original offsets are exact.
+ */
+final class WordDelimiterTokenFilter extends AbstractTokenFilter
 {
-    const CHAR_TYPE_BREAK = 'BREAK';
-    const CHAR_TYPE_UPPER = 'UPPER';
-    const CHAR_TYPE_LOWER = 'LOWER';
-    const CHAR_TYPE_DIGIT = 'DIGIT';
+    public const CHAR_TYPE_BREAK = 'BREAK';
+    public const CHAR_TYPE_UPPER = 'UPPER';
+    public const CHAR_TYPE_LOWER = 'LOWER';
+    public const CHAR_TYPE_DIGIT = 'DIGIT';
 
-    const WORD_TYPE_WORD = 'WORD';
-    const WORD_TYPE_NUMBER = 'NUMBER';
+    public const WORD_TYPE_WORD = 'WORD';
+    public const WORD_TYPE_NUMBER = 'NUMBER';
 
-    private $generateWordParts = true;
-    private $generateNumberParts = true;
-    private $catenateWords = false;
-    private $catenateNumbers = false;
-    private $catenateAll = false;
-    private $splitOnCaseChange = true;
-    private $preserveOriginal = false;
-    private $splitOnNumerics = true;
-    private $stemEnglishPossessive = true;
-    private $protectedWords = [];
+    private const DEFAULTS = [
+        'generateWordParts' => true,
+        'generateNumberParts' => true,
+        'catenateWords' => false,
+        'catenateNumbers' => false,
+        'catenateAll' => false,
+        'splitOnCaseChange' => true,
+        'preserveOriginal' => false,
+        'splitOnNumerics' => true,
+        'stemEnglishPossessive' => true,
+        'protectedWords' => [],
+    ];
 
+    private bool $generateWordParts = true;
+    private bool $generateNumberParts = true;
+    private bool $catenateWords = false;
+    private bool $catenateNumbers = false;
+    private bool $catenateAll = false;
+    private bool $splitOnCaseChange = true;
+    private bool $preserveOriginal = false;
+    private bool $splitOnNumerics = true;
+    private bool $stemEnglishPossessive = true;
+
+    /**
+     * @var array<string, true>
+     */
+    private array $protectedWords = [];
+
+    /**
+     * @param array<string, bool|list<string>> $config see DEFAULTS for the keys
+     */
     public function __construct(array $config = [])
     {
-        $config = array_merge([
-            'generateWordParts' => true,
-            'generateNumberParts' => true,
-            'catenateWords' => false,
-            'catenateNumbers' => false,
-            'catenateAll' => false,
-            'splitOnCaseChange' => true,
-            'preserveOriginal' => false,
-            'splitOnNumerics' => true,
-            'stemEnglishPossessive' => true,
-            'protectedWords' => [],
-        ], $config);
-
-        foreach ($config as $key => $value) {
-            switch ($key) {
-                case 'generateWordParts':
-                case 'generateNumberParts':
-                case 'catenateWords':
-                case 'catenateNumbers':
-                case 'catenateAll':
-                case 'splitOnCaseChange':
-                case 'preserveOriginal':
-                case 'splitOnNumerics':
-                case 'stemEnglishPossessive':
-                    $this->$key = (bool) $value;
-                    break;
-
-                case 'protectedWords':
-                    $this->$key = (array) $value;
-                    break;
-
-                default:
-                    throw new \InvalidArgumentException(sprintf('%s is not a valid parameter.', $key));
-                    break;
+        foreach (array_merge(self::DEFAULTS, $config) as $key => $value) {
+            if (!\array_key_exists($key, self::DEFAULTS)) {
+                throw new \InvalidArgumentException(\sprintf('%s is not a valid parameter.', $key));
             }
-        }
-    }
 
-    public function filter(array $tokens)
-    {
-        $_tokens = [];
-
-        foreach ($tokens as $token) {
-            $_tokens = array_merge($_tokens, $this->preserveOriginal ? [$token] : [], $this->applyFilters($token));
-        }
-
-        return $_tokens;
-    }
-
-    private function applyFilters($token)
-    {
-        if ($this->stemEnglishPossessive) {
-            $token = str_replace("'s", '', $token);
-        }
-
-        $parts = [];
-        $subword = '';
-
-        $previousCharType = $currentCharType = null;
-
-        foreach (str_split($token) as $char) {
-            $currentCharType = $this->charType($char);
-
-            // Break
-            if (self::CHAR_TYPE_BREAK === $currentCharType) {
-                if (is_null($previousCharType)) {
-                    continue;
-                }
-
-                $parts[] = $subword;
-                $subword = '';
-                $previousCharType = $currentCharType = null;
+            if ('protectedWords' === $key) {
+                $this->protectedWords = array_fill_keys(array_map('strval', (array) $value), true);
                 continue;
             }
 
-            // Split on case change
-            if ($this->splitOnCaseChange) {
-                if (self::CHAR_TYPE_UPPER === $currentCharType && !is_null($previousCharType) && self::CHAR_TYPE_UPPER !== $previousCharType) {
-                    $parts[] = $subword;
-                    $subword = $char;
-                    $previousCharType = $currentCharType;
-                    continue;
-                }
-            }
-
-            // Split on numerics
-            if ($this->splitOnNumerics) {
-                if (self::CHAR_TYPE_DIGIT === $currentCharType && !is_null($previousCharType) && self::CHAR_TYPE_DIGIT !== $previousCharType) {
-                    $parts[] = $subword;
-                    $subword = $char;
-                    $previousCharType = $currentCharType;
-                    continue;
-                }
-
-                if (!is_null($previousCharType) && self::CHAR_TYPE_DIGIT === $previousCharType && self::CHAR_TYPE_DIGIT !== $currentCharType) {
-                    $parts[] = $subword;
-                    $subword = $char;
-                    $previousCharType = $currentCharType;
-                    continue;
-                }
-            }
-
-            $subword .= $char;
-            $previousCharType = $currentCharType;
+            $this->$key = (bool) $value;
         }
+    }
 
-        if ($subword) {
-            $parts[] = $subword;
-        }
-
+    protected function process(array $tokens): array
+    {
         $result = [];
 
-        if ($this->catenateAll) {
-            $result[] = implode('', $parts);
-        }
-
-        $previousWordType = null;
-        $catenate = '';
-        foreach ($parts as $part) {
-            $currentWordType = $this->wordType($part);
-            if (!$currentWordType) {
+        foreach ($tokens as $token) {
+            if (isset($this->protectedWords[$token->term])) {
+                $result[] = $token;
                 continue;
             }
 
-            if ($this->generateWordParts && $currentWordType === self::WORD_TYPE_WORD) {
-                $result[] = $part;
+            $emitted = $this->delimit($token);
+
+            if ($this->preserveOriginal && !(1 === \count($emitted) && $emitted[0]->term === $token->term)) {
+                array_unshift($emitted, $token);
             }
 
-            if ($this->generateNumberParts && $currentWordType === self::WORD_TYPE_NUMBER) {
-                $result[] = $part;
-            }
-
-            $catenateWordType = $this->wordType($catenate);
-
-            if ($this->catenateWords && $currentWordType === self::WORD_TYPE_WORD) {
-                if (!empty($catenate) && ($catenateWordType !== self::WORD_TYPE_WORD || $previousWordType !== self::WORD_TYPE_WORD)) {
-                    $result[] = $catenate;
-                    $catenate = '';
-                }
-
-                $catenate .= $part;
-            }
-
-            if ($this->catenateNumbers && $currentWordType === self::WORD_TYPE_NUMBER) {
-                if (!empty($catenate) && ($catenateWordType !== self::WORD_TYPE_NUMBER || $previousWordType !== self::WORD_TYPE_NUMBER)) {
-                    $result[] = $catenate;
-                    $catenate = '';
-                }
-
-                $catenate .= $part;
-            }
-
-            $previousWordType = $currentWordType;
-        }
-
-        if (!empty($catenate)) {
-            $result[] = $catenate;
+            array_push($result, ...$emitted);
         }
 
         return $result;
     }
 
-    private function charType($char)
+    /**
+     * @return list<Token>
+     */
+    private function delimit(Token $token): array
     {
-        if (!ctype_alnum($char)) {
-            return self::CHAR_TYPE_BREAK;
+        $parts = $this->split($token->term);
+        $exact = $token->hasExactOffsets();
+        $make = static fn (string $term, int $start, int $end): Token => $exact
+            ? $token->with(term: $term, startOffset: (int) $token->startOffset + $start, endOffset: (int) $token->startOffset + $end)
+            : $token->withTerm($term);
+
+        $result = [];
+        $count = \count($parts);
+
+        if ($this->catenateAll && $count > 1) {
+            $result[] = $make(implode('', array_column($parts, 0)), $parts[0][1], $parts[$count - 1][2]);
         }
 
-        if (ctype_digit($char)) {
-            return self::CHAR_TYPE_DIGIT;
+        $run = [];
+        foreach ($parts as $i => $part) {
+            [$text, $start, $end, $type] = $part;
+
+            if (self::WORD_TYPE_WORD === $type ? $this->generateWordParts : $this->generateNumberParts) {
+                $result[] = $make($text, $start, $end);
+            }
+
+            $run[] = $part;
+            $next = $parts[$i + 1] ?? null;
+            if (null !== $next && $next[3] === $type) {
+                continue;
+            }
+
+            $catenate = self::WORD_TYPE_WORD === $type ? $this->catenateWords : $this->catenateNumbers;
+            if ($catenate && \count($run) > 1) {
+                $result[] = $make(implode('', array_column($run, 0)), $run[0][1], $run[\count($run) - 1][2]);
+            }
+            $run = [];
         }
 
-        if (ctype_lower($char)) {
-            return self::CHAR_TYPE_LOWER;
-        }
-
-        if (ctype_upper($char)) {
-            return self::CHAR_TYPE_UPPER;
-        }
-
-        return self::CHAR_TYPE_BREAK;
+        return $result;
     }
 
-    private function wordType($word)
+    /**
+     * @return list<array{0: string, 1: int, 2: int, 3: string}> text, start, end, word type
+     */
+    private function split(string $term): array
     {
-        if (ctype_alpha($word)) {
-            return self::WORD_TYPE_WORD;
+        $chars = mb_str_split($term, 1, 'UTF-8');
+        $count = \count($chars);
+        $types = array_map($this->charType(...), $chars);
+
+        // Combining marks belong to the previous character.
+        for ($i = 0; $i < $count; ++$i) {
+            if ('MARK' === $types[$i]) {
+                $types[$i] = $types[$i - 1] ?? self::CHAR_TYPE_BREAK;
+            }
         }
 
-        if (ctype_digit($word)) {
-            return self::WORD_TYPE_NUMBER;
+        if ($this->stemEnglishPossessive) {
+            for ($i = 1; $i < $count - 1; ++$i) {
+                if (\in_array($chars[$i], ["'", "\u{2019}"], true)
+                    && \in_array($chars[$i + 1], ['s', 'S'], true)
+                    && self::CHAR_TYPE_BREAK !== $types[$i - 1]
+                    && self::CHAR_TYPE_BREAK === ($types[$i + 2] ?? self::CHAR_TYPE_BREAK)
+                ) {
+                    $types[$i] = $types[$i + 1] = self::CHAR_TYPE_BREAK;
+                }
+            }
         }
 
-        return null;
+        $parts = [];
+        $start = null;
+        for ($i = 0; $i <= $count; ++$i) {
+            $type = $types[$i] ?? self::CHAR_TYPE_BREAK;
+            $previous = $i > 0 ? $types[$i - 1] : self::CHAR_TYPE_BREAK;
+
+            $boundary = self::CHAR_TYPE_BREAK === $type
+                || ($this->splitOnCaseChange && self::CHAR_TYPE_LOWER === $previous && self::CHAR_TYPE_UPPER === $type)
+                || ($this->splitOnNumerics && self::CHAR_TYPE_BREAK !== $previous && (self::CHAR_TYPE_DIGIT === $previous) !== (self::CHAR_TYPE_DIGIT === $type));
+
+            if ($boundary && null !== $start) {
+                $text = implode('', \array_slice($chars, $start, $i - $start));
+                $parts[] = [$text, $start, $i, preg_match('/^\p{N}+$/u', $text) ? self::WORD_TYPE_NUMBER : self::WORD_TYPE_WORD];
+                $start = null;
+            }
+
+            if (self::CHAR_TYPE_BREAK !== $type && null === $start) {
+                $start = $i;
+            }
+        }
+
+        return $parts;
+    }
+
+    private function charType(string $char): string
+    {
+        return match (true) {
+            1 === preg_match('/^[\p{Lu}\p{Lt}]$/u', $char) => self::CHAR_TYPE_UPPER,
+            1 === preg_match('/^\p{L}$/u', $char) => self::CHAR_TYPE_LOWER,
+            1 === preg_match('/^\p{N}$/u', $char) => self::CHAR_TYPE_DIGIT,
+            1 === preg_match('/^\p{M}$/u', $char) => 'MARK',
+            default => self::CHAR_TYPE_BREAK,
+        };
     }
 }

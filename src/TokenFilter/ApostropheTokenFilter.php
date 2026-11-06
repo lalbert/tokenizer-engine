@@ -1,16 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TokenizerEngine\TokenFilter;
 
-class ApostropheTokenFilter implements TokenFilterInterface
-{
-    public function filter(array $tokens)
-    {
-        return array_map([$this, 'apostrophe'], (array) $tokens);
-    }
+use TokenizerEngine\Token;
 
-    private function apostrophe($token)
+/**
+ * Strips the apostrophe and everything after it, like Elasticsearch's
+ * `apostrophe` filter. Handles both ' and ’ (U+2019).
+ */
+final class ApostropheTokenFilter extends AbstractTermTokenFilter
+{
+    protected function filterTerm(string $term, Token $token): string
     {
-        return trim(preg_replace("/('(?:.*))/", '', $token));
+        return (string) preg_replace("/['\u{2019}].*$/su", '', $term);
     }
 }
