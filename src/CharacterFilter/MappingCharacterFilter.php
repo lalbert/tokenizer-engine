@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace TokenizerEngine\CharacterFilter;
 
+use TokenizerEngine\OffsetMap;
+use TokenizerEngine\Util\OffsetRewriter;
 use TokenizerEngine\Util\WordList;
 
 /**
@@ -13,7 +15,7 @@ use TokenizerEngine\Util\WordList;
  * Mappings can be an associative array (['٠' => '0']) or a list of
  * Elasticsearch style rules (['٠ => 0', ':) => _happy_']).
  */
-final class MappingCharacterFilter implements CharacterFilterInterface
+final class MappingCharacterFilter implements OffsetMappingCharacterFilterInterface
 {
     /**
      * @var array<string, string>
@@ -50,6 +52,20 @@ final class MappingCharacterFilter implements CharacterFilterInterface
     public function filter(string $text): string
     {
         return [] === $this->mappings ? $text : strtr($text, $this->mappings);
+    }
+
+    public function filterWithOffsets(string $text): array
+    {
+        if ([] === $this->mappings) {
+            return [$text, OffsetMap::identity()];
+        }
+
+        // Longest keys first, like strtr().
+        $keys = array_map('strval', array_keys($this->mappings));
+        usort($keys, static fn (string $a, string $b): int => \strlen($b) <=> \strlen($a));
+        $regex = '~'.implode('|', array_map(static fn (string $k): string => preg_quote($k, '~'), $keys)).'~su';
+
+        return OffsetRewriter::rewrite($text, $regex, fn (array $m): array => [$this->mappings[$m[0]], false]);
     }
 
     private static function unescape(string $value): string

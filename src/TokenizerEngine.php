@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TokenizerEngine;
 
 use TokenizerEngine\CharacterFilter\CharacterFilterInterface;
+use TokenizerEngine\CharacterFilter\OffsetMappingCharacterFilterInterface;
 use TokenizerEngine\Elasticsearch\AnalysisConfig;
 use TokenizerEngine\TokenFilter\FinalOffsetAwareInterface;
 use TokenizerEngine\TokenFilter\TokenFilterInterface;
@@ -124,21 +125,33 @@ class TokenizerEngine
 
     /**
      * Analyzes $text and returns Token objects (term, position, offsets, type).
-     * Offsets refer to the text after character filters.
+     * Offsets refer to the original text, before character filters, like
+     * Elasticsearch.
      *
      * @return list<Token>
      */
     public function tokens(string $text): array
     {
-        $text = $this->filterCharacters($text);
-        $tokens = $this->tokenizeText($text);
-        $finalOffset = mb_strlen($text, 'UTF-8');
+        return $this->tokensAndOffsetMap($text)[0];
+    }
+
+    /**
+     * Like tokens(), plus the offset map of the character filters (it tells
+     * where markup such as HTML tags was removed).
+     *
+     * @return array{0: list<Token>, 1: OffsetMap}
+     */
+    public function tokensAndOffsetMap(string $text): array
+    {
+        [$filtered, $map] = $this->filterCharacters($text);
+        $tokens = $this->tokenizeText($filtered);
+        $finalOffset = mb_strlen($filtered, 'UTF-8');
 
         foreach ($this->tokenFilters as $filter) {
             $tokens = Tokens::normalize(self::bind($filter, $finalOffset)->filter($tokens));
         }
 
-        return $tokens;
+        return [self::mapOffsets($tokens, $map), $map];
     }
 
     /**
@@ -157,8 +170,14 @@ class TokenizerEngine
     {
         $result = ['characterFilters' => [], 'tokenizers' => [], 'tokenFilters' => []];
 
+        $map = OffsetMap::identity();
         foreach ($this->characterFilters as $filter) {
-            $output = $filter->filter($text);
+            if ($filter instanceof OffsetMappingCharacterFilterInterface) {
+                [$output, $filterMap] = $filter->filterWithOffsets($text);
+                $map = $map->then($filterMap);
+            } else {
+                $output = $filter->filter($text);
+            }
             $result['characterFilters'][$filter::class][] = ['input' => $text, 'output' => $output];
             $text = $output;
         }
@@ -182,19 +201,54 @@ class TokenizerEngine
             $result['tokenFilters'][$filter::class][] = ['input' => $before, 'output' => Tokens::terms($tokens)];
         }
 
+        $tokens = self::mapOffsets($tokens, $map);
         $result['final'] = Tokens::terms($tokens);
         $result['tokens'] = array_map(static fn (Token $token): array => $token->toArray(), $tokens);
 
         return $result;
     }
 
-    private function filterCharacters(string $text): string
+    /**
+     * @return array{0: string, 1: OffsetMap}
+     */
+    private function filterCharacters(string $text): array
     {
+        $map = OffsetMap::identity();
+
         foreach ($this->characterFilters as $filter) {
-            $text = $filter->filter($text);
+            if ($filter instanceof OffsetMappingCharacterFilterInterface) {
+                [$text, $filterMap] = $filter->filterWithOffsets($text);
+                $map = $map->then($filterMap);
+            } else {
+                $text = $filter->filter($text);
+            }
         }
 
-        return $text;
+        return [$text, $map];
+    }
+
+    /**
+     * @param list<Token> $tokens
+     *
+     * @return list<Token>
+     */
+    private static function mapOffsets(array $tokens, OffsetMap $map): array
+    {
+        if ($map->isIdentity()) {
+            return $tokens;
+        }
+
+        return array_map(
+            static fn (Token $t): Token => new Token(
+                $t->term,
+                $t->position,
+                null === $t->startOffset ? null : $map->toOriginal($t->startOffset),
+                null === $t->endOffset ? null : $map->toOriginal($t->endOffset),
+                $t->type,
+                $t->keyword,
+            ),
+            $tokens,
+        );
     }
 
     /**

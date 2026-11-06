@@ -1,10 +1,30 @@
 # Changelog
 
 All notable changes to this project are documented in this file. The format
-follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
-project adheres to [Semantic Versioning](https://semver.org/).
+follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions
+follow the backward compatibility promise of the README (semantic versioning
+for the public API; analysis output may change in minor versions to match
+Elasticsearch more closely).
 
 ## [Unreleased]
+
+### Added
+- `Highlighting\TermMatcher`: finds where the terms of a query appear in a
+  text (same analyzer, or a distinct query analyzer), with offsets in the
+  original text and the text segments to wrap, skipping markup.
+- `OffsetMap`, `OffsetMappingCharacterFilterInterface` and
+  `TokenizerEngine::tokensAndOffsetMap()`.
+- PHPBench benchmarks (`composer bench`), run in CI for information.
+
+### Changed
+- Token offsets refer to the original text, before character filters, like
+  Elasticsearch (they referred to the filtered text). With `html_strip`, they
+  point into the HTML source.
+- `HTMLStripCharacterFilter` follows Lucene: the 29 HTML 4 inline elements are
+  removed, every other tag (unknown tags included) and `<script>`/`<style>`
+  elements become a line break, `&nbsp;` becomes a space.
+- The parity suite compares offsets with character filters too.
+- `WordDelimiterTokenFilter` caches character classes (about 15 % faster).
 
 ## [1.1.0] - 2026-11-06
 

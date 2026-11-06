@@ -23,6 +23,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.64",
+        "phpbench/phpbench": "^1.7",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^11.4",
         "wamania/php-stemmer": "^4.0"
@@ -38,12 +39,14 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "TokenizerEngine\\Benchmarks\\": "benchmarks/",
             "TokenizerEngine\\Tests\\": "tests/"
         }
     },
     "scripts": {
         "test": "phpunit",
         "parity": "phpunit --testsuite parity",
+        "bench": "phpbench run --report=aggregate",
         "analyse": "phpstan analyse",
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs-fix": "php-cs-fixer fix",

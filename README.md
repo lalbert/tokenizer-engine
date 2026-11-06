@@ -90,8 +90,10 @@ new TokenizerEngine([
 ## Positions and offsets
 
 `tokens()` returns `Token` objects (immutable) with the term, its position and
-its offsets in the text, in characters (Unicode code points). `toArray()`
-gives the same shape as an entry of Elasticsearch's `_analyze` response.
+its offsets in the original text, in characters (Unicode code points). Like
+Elasticsearch, offsets point into the text **before** character filters: with
+`html_strip`, they point into the HTML source. `toArray()` gives the same shape
+as an entry of Elasticsearch's `_analyze` response.
 
 ```php
 foreach (Analyzers::standard()->tokens('Un été à Montréal') as $token) {
@@ -102,18 +104,40 @@ foreach (Analyzers::standard()->tokens('Un été à Montréal') as $token) {
 // ...
 ```
 
-Offsets make highlighting straightforward:
+`analyze()` returns the output of every step, which is handy to debug a chain.
+
+## Finding query terms in a text (highlighting)
+
+`TermMatcher` analyzes a query and a text with the same analyzer (or a
+distinct query analyzer, like Elasticsearch's `search_analyzer`) and returns
+where the query terms appear, with offsets in the original text and the text
+segments to wrap, which skip the markup removed by character filters. It does
+no rendering: wrap the segments the way you need.
 
 ```php
-$text = 'Un été à Montréal';
-foreach ($analyzer->tokens($text) as $token) {
-    if ('montreal' === $token->term) {
-        $match = mb_substr($text, $token->startOffset, $token->endOffset - $token->startOffset); // "Montréal"
+use TokenizerEngine\Highlighting\TermMatcher;
+
+$html = '<p>Les élèves de l’<b>École</b> arrivent à Montréal.</p>';
+$analyzer = TokenizerEngine::fromElasticsearch($settings, 'french_html'); // html_strip + french filters
+
+$out = '';
+$cursor = 0;
+foreach ((new TermMatcher($analyzer))->match($html, "l'ecole montreal") as $match) {
+    // $match->terms, $match->start, $match->end, $match->text ('l’<b>École</b>')
+    foreach ($match->segments as $segment) { // 'l’' then 'École': tags are skipped
+        $out .= mb_substr($html, $cursor, $segment['start'] - $cursor).'<mark>'.$segment['text'].'</mark>';
+        $cursor = $segment['end'];
     }
 }
+$out .= mb_substr($html, $cursor);
+// <p>Les élèves de <mark>l’</mark><b><mark>École</mark></b> arrivent à <mark>Montréal</mark>.</p>
 ```
 
-`analyze()` returns the output of every step, which is handy to debug a chain.
+What matches is decided by the analyzers: with a French analyzer, "l'ecole",
+"École" and "écoles" match "l’École", but "eco" does not. For
+search-as-you-type, index the text with an `edge_ngram` analyzer and pass a
+query analyzer without it. Like Elasticsearch, a passage is the whole token
+("l’École", elided article included); phrases are not matched as a whole.
 
 ## Using Elasticsearch settings
 
@@ -282,6 +306,23 @@ string, a list of strings or `null` to drop the token), `AbstractTokenFilter`
 to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 `[term, offset]` pairs).
 
+## Performance
+
+`composer bench` runs the PHPBench benchmarks of `benchmarks/`. Indicative
+timings on 100 KB of French text or HTML (PHP 8.3, one core of a cloud VM):
+
+| Operation | Time |
+|---|---|
+| Standard analyzer | 15 ms |
+| French analyzer (light stemmer, stop words, elision) | 28 ms |
+| `html_strip` with offset mapping | 7 ms |
+| HTML analysis with offsets mapped to the source | 25 ms |
+| `TermMatcher` on 100 KB of HTML | 27 ms |
+| `TextChunker` (1,000 characters, 200 of overlap) | 2.4 ms |
+
+Mapping offsets back to the original text costs almost nothing compared with
+the filtering itself.
+
 ## Parity with Elasticsearch
 
 `tests/Parity` sends a corpus of 13 texts (English, French, German, Spanish,
@@ -300,10 +341,11 @@ covered by the suite in the scope below:
   E430), whereas Elasticsearch leaves words containing them unchanged.
 - `path_hierarchy` increments positions like Elasticsearch 9; Elasticsearch 8
   puts every level at position 0.
-- Offsets are counted in Unicode code points (Elasticsearch counts UTF-16 code
-  units, so they differ for characters outside the BMP, such as emoji) and
-  refer to the text after character filters (Elasticsearch maps them back to
-  the original text).
+- Offsets are counted in Unicode code points; Elasticsearch counts UTF-16 code
+  units, so they differ for characters outside the BMP, such as emoji.
+- Custom character filters that only implement `CharacterFilterInterface` are
+  assumed not to move characters; implement
+  `OffsetMappingCharacterFilterInterface` to map offsets.
 
 Not compared (different by design or not loadable from settings):
 
@@ -342,6 +384,21 @@ composer test       # PHPUnit
 composer analyse    # PHPStan
 composer cs         # PHP-CS-Fixer (dry run), composer cs-fix to apply
 ```
+
+## Backward compatibility promise
+
+- **Public API**: classes, interfaces, public methods and their signatures
+  follow [semantic versioning](https://semver.org/). A change that breaks
+  code using them only happens in a major version. Classes and methods marked
+  `@internal` (`TokenizerEngine\Util\*`) are not covered.
+- **Analysis output** (terms, positions, offsets, types): the goal of the
+  library is to produce the same output as Elasticsearch. A minor version may
+  change it **only to match Elasticsearch more closely** (a stemmer ported from
+  Lucene, a corrected offset...); such changes are listed under "Changed" in
+  `CHANGELOG.md` and explained in `UPGRADE.md`. Reindex the data analyzed with
+  the previous version when they affect you. Any other change of output is a
+  bug, or waits for a major version.
+- Patch versions only fix bugs, without changing the output of correct code.
 
 ## Releasing
 
