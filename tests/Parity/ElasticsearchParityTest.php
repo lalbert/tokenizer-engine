@@ -80,10 +80,9 @@ final class ElasticsearchParityTest extends TestCase
             self::assertSame(array_column($expected, 'position'), array_column($actual, 'position'), 'Positions differ.');
         }
 
-        // Elasticsearch offsets refer to the original text in UTF-16 code
-        // units; ours refer to the character-filtered text in code points.
-        $charFilters = $request['char_filter'] ?? (isset($request['normalizer']) ? (ParityCases::normalizerSettings()['normalizer'][$request['normalizer']]['char_filter'] ?? null) : null);
-        $comparableOffsets = null === $charFilters && !preg_match('/[\x{10000}-\x{10FFFF}]/u', $text);
+        // Elasticsearch counts offsets in UTF-16 code units, this library in
+        // code points: they only differ for characters outside the BMP.
+        $comparableOffsets = !preg_match('/[\x{10000}-\x{10FFFF}]/u', $text);
         if ($comparableOffsets && \in_array('offsets', $compare, true)) {
             self::assertSame(
                 array_map(static fn (array $t): array => [$t['start_offset'], $t['end_offset']], $expected),

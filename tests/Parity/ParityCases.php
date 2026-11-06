@@ -29,6 +29,7 @@ final class ParityCases
         'url email' => 'Contact: luc@example.fr, https://example.fr/a?b=1 or www.example.org.',
         'path' => '/usr/local/bin/php',
         'html' => '<p>Hello <b>world</b> &amp; caf&eacute;</p><p>Second paragraph</p>',
+        'html page' => '<div class="intro">Les élèves de l’<b>École</b> arrivent<br>à <a href="/mtl">Montréal</a>&nbsp;!<!-- note --><script>var x = 1;</script></div>',
         'digits' => '١٢٣ ４５ 3,14 ﬁnal Ⅻ',
         'spaces' => '  spaced   out  ',
     ];

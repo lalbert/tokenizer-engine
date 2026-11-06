@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace TokenizerEngine\CharacterFilter;
 
+use TokenizerEngine\Util\OffsetRewriter;
+
 /**
- * Strips HTML, like Elasticsearch's `html_strip` character filter:
- * removes tags (and the content of <script>, <style>, comments), replaces
- * block level elements with a line break so words do not get glued together,
- * and decodes HTML entities.
+ * Strips HTML, like Elasticsearch's `html_strip` character filter: removes
+ * inline tags and comments, replaces other tags and <script>/<style>
+ * elements with a line break so that words do not get glued together, and
+ * decodes HTML entities. Offsets can be mapped back to the HTML source.
  */
-final class HTMLStripCharacterFilter implements CharacterFilterInterface
+final class HTMLStripCharacterFilter implements OffsetMappingCharacterFilterInterface
 {
-    private const BLOCK_TAGS = 'address|article|aside|blockquote|br|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul';
+    /**
+     * Inline elements are removed; every other tag (block, unknown, <script>,
+     * <style>) becomes a line break, like Lucene's HTMLStripCharFilter.
+     */
+    private const INLINE_TAGS = ['a', 'abbr', 'acronym', 'b', 'basefont', 'bdo', 'big', 'cite', 'code', 'dfn', 'em', 'font', 'i', 'img', 'input', 'kbd', 'label', 'q', 's', 'samp', 'select', 'small', 'span', 'strike', 'strong', 'sub', 'sup', 'textarea', 'tt', 'u', 'var'];
 
     /**
      * @var list<string>
@@ -39,16 +45,41 @@ final class HTMLStripCharacterFilter implements CharacterFilterInterface
 
     public function filter(string $text): string
     {
-        $text = (string) preg_replace('~<!--.*?-->~su', '', $text);
-        $text = (string) preg_replace('~<(script|style)\b[^>]*>.*?</\1\s*>~isu', '', $text);
+        return $this->filterWithOffsets($text)[0];
+    }
 
-        $blockTags = array_diff(explode('|', self::BLOCK_TAGS), $this->escapedTags);
-        if ([] !== $blockTags) {
-            $text = (string) preg_replace('~</?(?:'.implode('|', $blockTags).')\b[^>]*>~iu', "\n", $text);
-        }
+    public function filterWithOffsets(string $text): array
+    {
+        $inlineTags = array_flip(self::INLINE_TAGS);
+        $escaped = array_flip($this->escapedTags);
 
-        $text = strip_tags($text, $this->escapedTags);
+        return OffsetRewriter::rewrite(
+            $text,
+            '~(?<comment><!--.*?-->)|(?<script><(script|style)\b[^>]*>.*?</\3\s*>)|(?<tag></?(?<name>[a-zA-Z][a-zA-Z0-9]*)\b[^>]*>)|(?<entity>&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);)~su',
+            static function (array $m) use ($inlineTags, $escaped): ?array {
+                if ('' !== ($m['entity'] ?? '')) {
+                    $decoded = html_entity_decode($m['entity'], \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+                    $decoded = "\u{00A0}" === $decoded ? ' ' : $decoded;
 
-        return html_entity_decode($text, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+                    return $decoded === $m['entity'] ? null : [$decoded, false];
+                }
+
+                if ('' !== ($m['tag'] ?? '')) {
+                    $name = strtolower($m['name']);
+                    if (isset($escaped[$name])) {
+                        return null;
+                    }
+
+                    // Other elements become a line break so that words do not get glued together.
+                    return [isset($inlineTags[$name]) ? '' : "\n", true];
+                }
+
+                if ('' !== ($m['script'] ?? '')) {
+                    return ["\n", true];
+                }
+
+                return ['', true]; // comments
+            },
+        );
     }
 }

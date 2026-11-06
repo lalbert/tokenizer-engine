@@ -39,7 +39,8 @@ final class CharacterFiltersTest extends TestCase
     {
         $html = '<p>I&apos;m so <b>happy</b>&nbsp;&amp; caf&eacute;!</p><script>alert(1)</script><style>p{}</style><!-- hidden -->';
 
-        self::assertSame("I'm so happy\u{00A0}& café!", trim((new HTMLStripCharacterFilter())->filter($html)));
+        // Like Elasticsearch, &nbsp; becomes a regular space.
+        self::assertSame("I'm so happy & café!", trim((new HTMLStripCharacterFilter())->filter($html)));
     }
 
     public function testMapping(): void
