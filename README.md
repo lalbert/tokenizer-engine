@@ -404,6 +404,8 @@ composer install
 composer test       # PHPUnit
 composer analyse    # PHPStan
 composer cs         # PHP-CS-Fixer (dry run), composer cs-fix to apply
+composer bench      # PHPBench benchmarks
+composer mutation   # Infection mutation testing (needs PHP 8.3+ and pcov or Xdebug)
 ```
 
 ## Backward compatibility promise

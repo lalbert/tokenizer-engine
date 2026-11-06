@@ -49,6 +49,30 @@ jobs:
         if: ${{ matrix.php == '8.4' && matrix.intl }}
         run: vendor/bin/phpunit --coverage-text --coverage-clover build/clover.xml
 
+  mutation:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl
+          coverage: pcov
+      - uses: ramsey/composer-install@v3
+      # Infection needs PHP 8.3+, the library supports 8.2: installed here only.
+      - name: Install Infection
+        run: |
+          composer config --no-plugins allow-plugins.infection/extension-installer true
+          composer require --dev --no-interaction --no-progress infection/infection:^0.35
+      - name: Run Infection
+        run: vendor/bin/infection --threads=max --no-progress --show-mutations=0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infection-report
+          path: build/infection*.log
+
   examples:
     name: Examples
     runs-on: ubuntu-latest

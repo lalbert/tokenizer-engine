@@ -47,6 +47,7 @@
         "test": "phpunit",
         "parity": "phpunit --testsuite parity",
         "bench": "phpbench run --report=aggregate",
+        "mutation": "infection --threads=max --show-mutations=0",
         "analyse": "phpstan analyse",
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs-fix": "php-cs-fixer fix",

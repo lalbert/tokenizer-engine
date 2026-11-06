@@ -15,6 +15,8 @@ Elasticsearch more closely).
 - `OffsetMap`, `OffsetMappingCharacterFilterInterface` and
   `TokenizerEngine::tokensAndOffsetMap()`.
 - PHPBench benchmarks (`composer bench`), run in CI for information.
+- Mutation testing with Infection (`composer mutation`), run in CI: the build
+  fails below a mutation score of 78 % (measured baseline: 79 %).
 - Examples, tested in CI: full-text search with plain SQL (BM25, highlighting,
   search-as-you-type) and retrieval augmented generation
   (`docs/search-with-sql.md`, `docs/rag.md`, `examples/`).
