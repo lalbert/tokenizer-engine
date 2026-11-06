@@ -22,6 +22,9 @@ final class ParityCases
         'french' => 'L’école des chevaux, c’était hier ! Les élèves arrivent à Montréal pour l’été.',
         'german' => 'Die Katzen und die Häuser in München sind schön.',
         'spanish' => 'Los niños comían manzanas en la cocina.',
+        'italian' => "Gli studenti dell'università leggevano libri antichi nelle biblioteche.",
+        'portuguese' => 'As crianças brincavam alegremente nas praças das cidades portuguesas.',
+        'dutch' => 'De kinderen fietsen met hun fietsen naar de bibliotheken van de steden.',
         'mixed case' => "Wi-Fi PowerShot SD500 O'Neil's j2se",
         'url email' => 'Contact: luc@example.fr, https://example.fr/a?b=1 or www.example.org.',
         'path' => '/usr/local/bin/php',
@@ -36,10 +39,6 @@ final class ParityCases
     public static function all(): array
     {
         $standard = static fn (array $filter, array $extra = []): array => ['tokenizer' => 'standard', 'filter' => $filter] + $extra;
-        $snowball = [
-            'compare' => ['positions', 'offsets'],
-            'reason' => 'Snowball stemmer here, "light" stemmer in Elasticsearch: tokenization and stop words are compared, not stems.',
-        ];
         $pathPositions = [
             'positions_since' => '9.0.0',
             'reason' => 'Elasticsearch 8 puts every level at position 0; Elasticsearch 9 (and this library) increments positions.',
@@ -60,11 +59,11 @@ final class ParityCases
             'analyzer fingerprint' => ['analyzer' => 'fingerprint'],
             'analyzer english' => ['analyzer' => 'english'],
             'analyzer french' => ['analyzer' => 'french'],
-            'analyzer german' => ['analyzer' => 'german'] + $snowball,
-            'analyzer spanish' => ['analyzer' => 'spanish'] + $snowball,
-            'analyzer italian' => ['analyzer' => 'italian'] + $snowball,
-            'analyzer portuguese' => ['analyzer' => 'portuguese'] + $snowball,
-            'analyzer dutch' => ['analyzer' => 'dutch'] + $snowball,
+            'analyzer german' => ['analyzer' => 'german'],
+            'analyzer spanish' => ['analyzer' => 'spanish'],
+            'analyzer italian' => ['analyzer' => 'italian'],
+            'analyzer portuguese' => ['analyzer' => 'portuguese'],
+            'analyzer dutch' => ['analyzer' => 'dutch'],
 
             // Tokenizers
             'tokenizer standard' => ['tokenizer' => 'standard'],
@@ -116,6 +115,11 @@ final class ParityCases
             'filter stemmer english' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'english']]),
             'filter stemmer light_french' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_french']]),
             'filter stemmer minimal_french' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'minimal_french']]),
+            'filter stemmer light_german' => $standard(['lowercase', 'german_normalization', ['type' => 'stemmer', 'language' => 'light_german']]),
+            'filter stemmer light_spanish' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_spanish']]),
+            'filter stemmer light_italian' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_italian']]),
+            'filter stemmer light_portuguese' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'light_portuguese']]),
+            'filter german_normalization' => $standard(['lowercase', 'german_normalization']),
             'filter stemmer french snowball' => $standard(['lowercase', ['type' => 'snowball', 'language' => 'French']]),
             'filter porter_stem' => $standard(['lowercase', 'porter_stem']),
             'filter keyword_marker' => $standard(['lowercase', ['type' => 'keyword_marker', 'keywords' => ['chevaux', 'jumped']], 'porter_stem']),

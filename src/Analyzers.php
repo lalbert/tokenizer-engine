@@ -8,8 +8,10 @@ use TokenizerEngine\TokenFilter\AsciiFoldingTokenFilter;
 use TokenizerEngine\TokenFilter\ElisionTokenFilter;
 use TokenizerEngine\TokenFilter\EnglishPossessiveTokenFilter;
 use TokenizerEngine\TokenFilter\FingerprintTokenFilter;
+use TokenizerEngine\TokenFilter\GermanNormalizationTokenFilter;
 use TokenizerEngine\TokenFilter\KeywordMarkerTokenFilter;
 use TokenizerEngine\TokenFilter\LowercaseTokenFilter;
+use TokenizerEngine\TokenFilter\StemmerOverrideTokenFilter;
 use TokenizerEngine\TokenFilter\StemmerTokenFilter;
 use TokenizerEngine\TokenFilter\StopTokenFilter;
 use TokenizerEngine\Tokenizer\KeywordTokenizer;
@@ -20,11 +22,10 @@ use TokenizerEngine\Tokenizer\WhitespaceTokenizer;
 /**
  * Ready to use analyzers mirroring Elasticsearch's built-in analyzers.
  *
- * The English and French analyzers use native ports of Lucene's Porter and
- * light French stemmers (same results as Elasticsearch). The other language
- * analyzers need the wamania/php-stemmer package: they use Snowball stemmers,
- * which are close to but not identical with the "light" stemmers
- * Elasticsearch uses for German, Spanish, Italian and Portuguese.
+ * Language analyzers use the same filter chains as Elasticsearch, with
+ * native ports of Lucene's stemmers (Porter, light French, German, Spanish,
+ * Italian, Portuguese). The Dutch analyzer needs the wamania/php-stemmer
+ * package (Snowball Dutch, like Elasticsearch).
  */
 final class Analyzers
 {
@@ -140,7 +141,7 @@ final class Analyzers
             ->addTokenFilter(new LowercaseTokenFilter())
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_italian_'))
             ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
-            ->addTokenFilter(new StemmerTokenFilter('italian'));
+            ->addTokenFilter(new StemmerTokenFilter('light_italian'));
     }
 
     /**
@@ -149,7 +150,13 @@ final class Analyzers
      */
     public static function german(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('german', $stopWords, $stemExclusion);
+        return (new TokenizerEngine())
+            ->addTokenizer(new StandardTokenizer())
+            ->addTokenFilter(new LowercaseTokenFilter())
+            ->addTokenFilter(new StopTokenFilter($stopWords ?? '_german_'))
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
+            ->addTokenFilter(new GermanNormalizationTokenFilter())
+            ->addTokenFilter(new StemmerTokenFilter('light_german'));
     }
 
     /**
@@ -158,7 +165,7 @@ final class Analyzers
      */
     public static function spanish(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('spanish', $stopWords, $stemExclusion);
+        return self::lightLanguage('spanish', $stopWords, $stemExclusion);
     }
 
     /**
@@ -167,16 +174,25 @@ final class Analyzers
      */
     public static function portuguese(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('portuguese', $stopWords, $stemExclusion);
+        return self::lightLanguage('portuguese', $stopWords, $stemExclusion);
     }
 
     /**
+     * Needs wamania/php-stemmer (Snowball Dutch), like Elasticsearch, with the
+     * same default stem overrides (fiets, bromfiets, ei, kind).
+     *
      * @param string|list<string>|null $stopWords     null = the language's default list
      * @param list<string>             $stemExclusion words protected from stemming
      */
     public static function dutch(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('dutch', $stopWords, $stemExclusion);
+        return (new TokenizerEngine())
+            ->addTokenizer(new StandardTokenizer())
+            ->addTokenFilter(new LowercaseTokenFilter())
+            ->addTokenFilter(new StopTokenFilter($stopWords ?? '_dutch_'))
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
+            ->addTokenFilter(new StemmerOverrideTokenFilter(['fiets' => 'fiets', 'bromfiets' => 'bromfiets', 'ei' => 'eier', 'kind' => 'kinder']))
+            ->addTokenFilter(new StemmerTokenFilter('dutch'));
     }
 
     /**
@@ -206,13 +222,13 @@ final class Analyzers
      * @param string|list<string>|null $stopWords
      * @param list<string>             $stemExclusion
      */
-    private static function basicLanguage(string $language, string|array|null $stopWords, array $stemExclusion): TokenizerEngine
+    private static function lightLanguage(string $language, string|array|null $stopWords, array $stemExclusion): TokenizerEngine
     {
         return (new TokenizerEngine())
             ->addTokenizer(new StandardTokenizer())
             ->addTokenFilter(new LowercaseTokenFilter())
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_'.$language.'_'))
             ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
-            ->addTokenFilter(new StemmerTokenFilter($language));
+            ->addTokenFilter(new StemmerTokenFilter('light_'.$language));
     }
 }

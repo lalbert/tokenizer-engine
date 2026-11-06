@@ -28,11 +28,30 @@ final class StandardTokenizer extends AbstractTokenizer
 
     protected function split(string $text): iterable
     {
-        $parts = $this->useIntl && class_exists(\IntlBreakIterator::class)
+        foreach ($this->segment($text) as [$term, $offset]) {
+            if (mb_strlen($term) <= $this->maxTokenLength) {
+                yield [$term, $offset];
+                continue;
+            }
+
+            // Like Lucene, a word longer than maxTokenLength is cut, and each
+            // piece is segmented again ("dell'" gives "dell").
+            foreach (mb_str_split($term, max(1, $this->maxTokenLength), 'UTF-8') as $i => $chunk) {
+                foreach ($this->segment($chunk) as [$piece, $pieceOffset]) {
+                    yield [$piece, $offset + $i * $this->maxTokenLength + $pieceOffset];
+                }
+            }
+        }
+    }
+
+    /**
+     * @return list<array{0: string, 1: int}>
+     */
+    private function segment(string $text): array
+    {
+        return $this->useIntl && class_exists(\IntlBreakIterator::class)
             ? $this->splitWithIntl($text)
             : self::matches(self::FALLBACK_PATTERN, $text);
-
-        return self::limitLength($parts, $this->maxTokenLength);
     }
 
     protected function tokenType(string $term): string
