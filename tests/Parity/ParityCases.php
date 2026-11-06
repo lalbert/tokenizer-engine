@@ -34,6 +34,35 @@ final class ParityCases
     ];
 
     /**
+     * Analysis settings of the test index holding the normalizers
+     * (Elasticsearch only runs custom normalizers through an index, and index
+     * settings do not accept inline component definitions).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function normalizerSettings(): array
+    {
+        return [
+            'char_filter' => [
+                'no_dashes' => ['type' => 'mapping', 'mappings' => ['- => _', ': => _']],
+                'single_spaces' => ['type' => 'pattern_replace', 'pattern' => '\\s+', 'replacement' => ' '],
+            ],
+            'filter' => [
+                'no_vowels' => ['type' => 'pattern_replace', 'pattern' => '[aeiou]', 'replacement' => ''],
+                'french_elision' => ['type' => 'elision', 'articles' => ['l', 'd', 'c'], 'articles_case' => true],
+            ],
+            'normalizer' => [
+                'n_lowercase_folding' => ['type' => 'custom', 'filter' => ['lowercase', 'asciifolding']],
+                'n_trim_upper' => ['type' => 'custom', 'filter' => ['trim', 'uppercase']],
+                'n_mapping' => ['type' => 'custom', 'char_filter' => ['no_dashes'], 'filter' => ['lowercase']],
+                'n_pattern' => ['type' => 'custom', 'char_filter' => ['single_spaces'], 'filter' => ['no_vowels']],
+                'n_elision' => ['type' => 'custom', 'filter' => ['lowercase', 'french_elision']],
+                'n_german' => ['type' => 'custom', 'filter' => ['lowercase', 'german_normalization', 'decimal_digit']],
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public static function all(): array
@@ -134,6 +163,15 @@ final class ParityCases
             'filter pattern_capture' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'pattern_capture', 'patterns' => ['(\p{Ll}+)', '(\d+)']]]],
             'filter multiplexer' => $standard([['type' => 'multiplexer', 'filters' => ['lowercase', 'lowercase, porter_stem']]]),
             'filter decimal_digit' => ['tokenizer' => 'whitespace', 'filter' => ['decimal_digit']],
+
+            // Normalizers
+            'normalizer lowercase (built-in)' => ['normalizer' => 'lowercase'],
+            'normalizer lowercase + asciifolding' => ['normalizer' => 'n_lowercase_folding'],
+            'normalizer trim + uppercase' => ['normalizer' => 'n_trim_upper'],
+            'normalizer mapping' => ['normalizer' => 'n_mapping'],
+            'normalizer pattern_replace' => ['normalizer' => 'n_pattern'],
+            'normalizer elision' => ['normalizer' => 'n_elision'],
+            'normalizer german_normalization + decimal_digit' => ['normalizer' => 'n_german'],
 
             // Plugins
             'filter icu_normalizer' => $standard(['icu_normalizer'], ['plugin' => 'analysis-icu']),

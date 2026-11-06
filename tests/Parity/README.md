@@ -8,6 +8,7 @@ offsets for every case of `ParityCases.php`.
 docker build -t tokenizer-engine-es tests/Parity
 docker run -d --name tokenizer-engine-es -p 9200:9200 \
   -e discovery.type=single-node -e xpack.security.enabled=false \
+  -e cluster.routing.allocation.disk.threshold_enabled=false \
   -e ES_JAVA_OPTS="-Xms512m -Xmx512m" tokenizer-engine-es
 ELASTICSEARCH_URL=http://localhost:9200 composer parity
 ```
