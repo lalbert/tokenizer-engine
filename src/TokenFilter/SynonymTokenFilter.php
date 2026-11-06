@@ -41,7 +41,9 @@ final class SynonymTokenFilter extends AbstractTokenFilter
             if (\is_string($key)) {
                 $this->addRule([$key], (array) $value);
             } else {
-                $this->parseRule((string) $value);
+                foreach ((array) $value as $rule) {
+                    $this->parseRule($rule);
+                }
             }
         }
 

@@ -54,7 +54,7 @@ final class StandardTokenizer extends AbstractTokenizer
         }
 
         $iterator = \IntlBreakIterator::createWordInstance('root');
-        if (null === $iterator) {
+        if (!$iterator instanceof \IntlRuleBasedBreakIterator) {
             return self::matches(self::FALLBACK_PATTERN, $text);
         }
         $iterator->setText($text);

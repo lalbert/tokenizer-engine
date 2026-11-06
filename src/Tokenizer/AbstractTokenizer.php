@@ -80,7 +80,7 @@ abstract class AbstractTokenizer implements TokenizerInterface
                 continue;
             }
 
-            foreach (mb_str_split($term, $maxLength) as $i => $chunk) {
+            foreach (mb_str_split($term, max(1, $maxLength)) as $i => $chunk) {
                 yield [$chunk, $offset + $i * $maxLength];
             }
         }

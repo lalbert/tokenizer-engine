@@ -26,7 +26,7 @@ final class Icu
             ['nfc', 'decompose'] => \Normalizer::FORM_D,
             ['nfkc', 'compose'] => \Normalizer::FORM_KC,
             ['nfkc', 'decompose'] => \Normalizer::FORM_KD,
-            ['nfkc_cf', 'compose'] => \Normalizer::FORM_KC_CF,
+            ['nfkc_cf', 'compose'] => self::formKcCf(),
             default => throw new \InvalidArgumentException(\sprintf('Unsupported normalization "%s" (mode %s).', $name, $mode)),
         };
     }
@@ -48,12 +48,26 @@ final class Icu
         self::$folding ??= \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC; Latin-ASCII')
             ?? throw new \LogicException('Unable to create the ICU folding transliterator.');
 
-        $folded = self::$folding->transliterate(self::normalize($text, \Normalizer::FORM_KC_CF));
+        $folded = self::$folding->transliterate(self::normalize($text, self::formKcCf()));
         if (false === $folded) {
             throw new \InvalidArgumentException('Input is not valid UTF-8.');
         }
 
-        return self::normalize($folded, \Normalizer::FORM_KC_CF);
+        return self::normalize($folded, self::formKcCf());
+    }
+
+    /**
+     * Normalizer::FORM_KC_CF (PHP 7.3+ with ICU 56+), read dynamically
+     * because static analysis stubs do not always declare it.
+     */
+    private static function formKcCf(): int
+    {
+        $constant = \Normalizer::class.'::FORM_KC_CF';
+        if (!\defined($constant)) {
+            throw new \LogicException('NFKC_Casefold needs ICU 56 or later.');
+        }
+
+        return (int) \constant($constant);
     }
 
     private static function requireIntl(): void

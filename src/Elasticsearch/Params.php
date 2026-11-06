@@ -109,6 +109,8 @@ final class Params
     /**
      * A predefined list name ("_english_") or a list of words.
      *
+     * @param string|list<string>|null $default
+     *
      * @return string|list<string>|null
      */
     public function stringOrList(string $name, string|array|null $default = null): string|array|null

@@ -48,7 +48,7 @@ final class FrenchLightStemmer implements StemmerInterface
     }
 
     /**
-     * @param list<string> $s
+     * @param array<int, string> $s
      */
     private function doStem(array &$s, int $len): int
     {
@@ -242,7 +242,7 @@ final class FrenchLightStemmer implements StemmerInterface
     }
 
     /**
-     * @param list<string> $s
+     * @param array<int, string> $s
      */
     private function norm(array &$s, int $len): int
     {
@@ -286,7 +286,7 @@ final class FrenchLightStemmer implements StemmerInterface
     }
 
     /**
-     * @param list<string> $s
+     * @param array<int, string> $s
      */
     private static function endsWith(array $s, int $len, string $suffix): bool
     {

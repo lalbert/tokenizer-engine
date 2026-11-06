@@ -81,7 +81,8 @@ final class UaxUrlEmailTokenizer extends AbstractTokenizer
         $byte = 0;
 
         foreach ($matches as $match) {
-            [$value, $start] = $match[0];
+            $value = (string) $match[0][0];
+            $start = $match[0][1];
             $type = null !== $match['url'][0] ? '<URL>' : '<EMAIL>';
 
             if ('<URL>' === $type) {
