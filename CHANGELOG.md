@@ -4,7 +4,9 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.0.0] - Unreleased
+## [Unreleased]
+
+## [1.0.0] - 2026-11-06
 
 Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 
@@ -76,5 +78,6 @@ Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 
 First release.
 
-[1.0.0]: https://github.com/lalbert/tokenizer-engine/compare/0.0.1...HEAD
+[Unreleased]: https://github.com/lalbert/tokenizer-engine/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/lalbert/tokenizer-engine/compare/0.0.1...1.0.0
 [0.0.1]: https://github.com/lalbert/tokenizer-engine/releases/tag/0.0.1
