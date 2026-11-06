@@ -13,13 +13,13 @@ jobs:
     name: Coding standards & static analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: mbstring, intl
           coverage: none
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - run: composer cs
       - run: composer analyse
 
@@ -35,13 +35,13 @@ jobs:
           - php: '8.4'
             intl: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: ${{ matrix.intl && 'mbstring, intl' || 'mbstring, :intl' }}
           coverage: ${{ matrix.php == '8.4' && matrix.intl && 'pcov' || 'none' }}
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Run tests
         if: ${{ !(matrix.php == '8.4' && matrix.intl) }}
         run: vendor/bin/phpunit
@@ -53,13 +53,13 @@ jobs:
     name: Mutation testing
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: mbstring, intl
           coverage: pcov
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       # Infection needs PHP 8.3+, the library supports 8.2: installed here only.
       - name: Install Infection
         run: |
@@ -67,7 +67,7 @@ jobs:
           composer require --dev --no-interaction --no-progress infection/infection:^0.35
       - name: Run Infection
         run: vendor/bin/infection --threads=max --no-progress --show-mutations=0
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: infection-report
@@ -115,13 +115,13 @@ jobs:
       EXAMPLES_DB_USER: examples
       EXAMPLES_DB_PASSWORD: examples
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: mbstring, intl, pdo_sqlite, pdo_mysql, pdo_pgsql
           coverage: none
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Wait for the database
         if: matrix.dsn != ''
         run: |
@@ -147,13 +147,13 @@ jobs:
     name: Benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: mbstring, intl
           coverage: none
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       # Informative: timings depend on the runner, they are not compared.
       - run: composer bench
 
@@ -165,7 +165,7 @@ jobs:
       matrix:
         elasticsearch: ['8.19.23', '9.5.5']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start Elasticsearch
         run: |
           docker build -q -t tokenizer-engine-es --build-arg ES_VERSION=${{ matrix.elasticsearch }} tests/Parity
@@ -178,7 +178,7 @@ jobs:
           php-version: '8.4'
           extensions: mbstring, intl
           coverage: none
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
       - name: Wait for Elasticsearch
         run: |
           for i in $(seq 1 60); do
