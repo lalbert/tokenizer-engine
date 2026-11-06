@@ -136,7 +136,6 @@ final class AsciiFoldingMap
             // Decompositions for Latin Extended-B
             \chr(200).\chr(152) => 'S', \chr(200).\chr(153) => 's',
             \chr(200).\chr(154) => 'T', \chr(200).\chr(155) => 't',
-            \chr(226).\chr(130).\chr(172) => 'E',
             // Vowels with diacritic (Vietnamese)
             // unmarked
             \chr(198).\chr(160) => 'O', \chr(198).\chr(161) => 'o',

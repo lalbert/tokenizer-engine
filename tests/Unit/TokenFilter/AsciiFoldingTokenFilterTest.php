@@ -21,6 +21,8 @@ final class AsciiFoldingTokenFilterTest extends TestCase
         'Straße' => 'Strasse',
         'Đặng' => 'Dang',
         'plain' => 'plain',
+        '10€' => '10€',
+        '£5' => '£5',
     ];
 
     public function testFoldingWithIntl(): void
