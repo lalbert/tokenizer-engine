@@ -53,7 +53,8 @@ final class Icu
             throw new \InvalidArgumentException('Input is not valid UTF-8.');
         }
 
-        return self::normalize($folded, self::formKcCf());
+        // UTR #30 folding also maps decimal digits of every script to 0-9.
+        return Digits::toAscii(self::normalize($folded, self::formKcCf()));
     }
 
     /**

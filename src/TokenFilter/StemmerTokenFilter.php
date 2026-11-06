@@ -6,6 +6,7 @@ namespace TokenizerEngine\TokenFilter;
 
 use TokenizerEngine\Stemmer\FrenchLightStemmer;
 use TokenizerEngine\Stemmer\FrenchMinimalStemmer;
+use TokenizerEngine\Stemmer\PorterStemmer;
 use TokenizerEngine\Stemmer\SnowballStemmer;
 use TokenizerEngine\Stemmer\StemmerInterface;
 use TokenizerEngine\Token;
@@ -15,19 +16,20 @@ use TokenizerEngine\Token;
  * Elasticsearch's `stemmer` filter. Tokens flagged as keywords (see
  * KeywordMarkerTokenFilter) are left untouched.
  *
- * - `light_french` and `minimal_french` are native ports of the Lucene
- *   stemmers used by Elasticsearch (no dependency);
- * - other languages use the Snowball algorithms of the wamania/php-stemmer
- *   package (french, english, german...). Elasticsearch names that map to a
- *   different algorithm (porter, light_german...) fall back to Snowball, so
- *   results can differ from Elasticsearch for them.
+ * - `english` / `porter` (Porter 1980), `light_french` and `minimal_french`
+ *   are native ports of the Lucene stemmers used by Elasticsearch (no
+ *   dependency);
+ * - other names use the Snowball algorithms of the wamania/php-stemmer
+ *   package (french, german, porter2, en, fr...). Elasticsearch names that map
+ *   to a different algorithm (light_german, light_english...) fall back to
+ *   Snowball, so results can differ from Elasticsearch for them.
  *
  * Terms are expected to be lowercased first.
  */
 final class StemmerTokenFilter extends AbstractTermTokenFilter
 {
     private const ALIASES = [
-        'porter' => 'english', 'porter2' => 'english', 'light_english' => 'english', 'minimal_english' => 'english', 'lovins' => 'english',
+        'porter2' => 'english', 'light_english' => 'english', 'minimal_english' => 'english', 'lovins' => 'english',
         'light_german' => 'german', 'german2' => 'german', 'minimal_german' => 'german',
         'light_spanish' => 'spanish',
         'light_italian' => 'italian',
@@ -56,6 +58,7 @@ final class StemmerTokenFilter extends AbstractTermTokenFilter
         $language = strtolower($language);
 
         return match ($language) {
+            'english', 'porter' => new PorterStemmer(),
             'light_french' => new FrenchLightStemmer(),
             'minimal_french' => new FrenchMinimalStemmer(),
             'possessive_english' => throw new \InvalidArgumentException('Use EnglishPossessiveTokenFilter for "possessive_english".'),

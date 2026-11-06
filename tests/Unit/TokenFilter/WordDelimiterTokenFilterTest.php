@@ -40,18 +40,19 @@ final class WordDelimiterTokenFilterTest extends TestCase
     {
         $filter = new WordDelimiterTokenFilter(['catenateWords' => true]);
 
-        self::assertSame(['wi', 'fi', 'wifi'], $filter->filter(['wi-fi']));
+        // Like Elasticsearch, a catenation follows the first part of its run.
+        self::assertSame(['wi', 'wifi', 'fi'], $filter->filter(['wi-fi']));
         self::assertSame(['hello'], $filter->filter(['hello']));
     }
 
     public function testCatenateNumbers(): void
     {
-        self::assertSame(['500', '42', '50042'], (new WordDelimiterTokenFilter(['catenateNumbers' => true]))->filter(['500-42']));
+        self::assertSame(['500', '50042', '42'], (new WordDelimiterTokenFilter(['catenateNumbers' => true]))->filter(['500-42']));
     }
 
     public function testCatenateAll(): void
     {
-        self::assertSame(['wifi4000', 'wi', 'fi', '4000'], (new WordDelimiterTokenFilter(['catenateAll' => true]))->filter(['wi-fi-4000']));
+        self::assertSame(['wi', 'wifi4000', 'fi', '4000'], (new WordDelimiterTokenFilter(['catenateAll' => true]))->filter(['wi-fi-4000']));
     }
 
     public function testPreserveOriginal(): void
@@ -74,6 +75,21 @@ final class WordDelimiterTokenFilterTest extends TestCase
         self::assertSame(['PowerShot', 'SD500', 'O', 'Neil', 's'], $filter->filter(['PowerShot', 'SD500', "O'Neil's"]));
     }
 
+    public function testPositionsLikeElasticsearch(): void
+    {
+        $result = (new WordDelimiterTokenFilter(['catenateWords' => true]))->filter([new Token('Wi-Fi', 0), new Token('!', 1), new Token('next', 2)]);
+
+        self::assertSame(
+            [['Wi', 0], ['WiFi', 0], ['Fi', 1], ['next', 2]],
+            array_map(static fn (Token $t): array => [$t->term, $t->position], $result),
+        );
+    }
+
+    public function testSinglePartTokensAreKept(): void
+    {
+        self::assertSame(['The', 'BrownFoxes'], (new WordDelimiterTokenFilter(['generateWordParts' => false, 'catenateAll' => true]))->filter(['The', 'Brown-Foxes']));
+    }
+
     public function testNoWordParts(): void
     {
         self::assertSame(['4000'], (new WordDelimiterTokenFilter(['generateWordParts' => false]))->filter(['wi-fi-4000']));
@@ -90,7 +106,7 @@ final class WordDelimiterTokenFilterTest extends TestCase
         $result = (new WordDelimiterTokenFilter())->filter([new Token('Élan-vital', 3, 10, 20)]);
 
         self::assertSame(
-            [['Élan', 10, 14, 3], ['vital', 15, 20, 3]],
+            [['Élan', 10, 14, 3], ['vital', 15, 20, 4]],
             array_map(static fn (Token $t): array => [$t->term, $t->startOffset, $t->endOffset, $t->position], $result),
         );
     }

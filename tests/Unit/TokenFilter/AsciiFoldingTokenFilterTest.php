@@ -46,7 +46,8 @@ final class AsciiFoldingTokenFilterTest extends TestCase
 
     public function testPreserveOriginal(): void
     {
-        self::assertSame(['café', 'cafe', 'bar'], (new AsciiFoldingTokenFilter(preserveOriginal: true))->filter(['café', 'bar']));
+        // Like Elasticsearch, the folded form comes first.
+        self::assertSame(['cafe', 'café', 'bar'], (new AsciiFoldingTokenFilter(preserveOriginal: true))->filter(['café', 'bar']));
     }
 
     public function testGermanLocale(): void

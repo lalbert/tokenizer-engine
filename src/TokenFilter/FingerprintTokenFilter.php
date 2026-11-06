@@ -11,8 +11,10 @@ use TokenizerEngine\Token;
  * token, like Elasticsearch's `fingerprint` filter (OpenRefine clustering).
  * If the result is longer than $maxOutputSize, no token is emitted.
  */
-final class FingerprintTokenFilter extends AbstractTokenFilter
+final class FingerprintTokenFilter extends AbstractTokenFilter implements FinalOffsetAwareInterface
 {
+    private ?int $finalOffset = null;
+
     public function __construct(private readonly string $separator = ' ', private readonly int $maxOutputSize = 255)
     {
         if (1 !== mb_strlen($separator, 'UTF-8')) {
@@ -22,6 +24,14 @@ final class FingerprintTokenFilter extends AbstractTokenFilter
         if ($maxOutputSize < 1) {
             throw new \InvalidArgumentException('maxOutputSize must be greater than 0.');
         }
+    }
+
+    public function withFinalOffset(int $finalOffset): static
+    {
+        $clone = clone $this;
+        $clone->finalOffset = $finalOffset;
+
+        return $clone;
     }
 
     protected function process(array $tokens): array
@@ -37,11 +47,12 @@ final class FingerprintTokenFilter extends AbstractTokenFilter
         $starts = array_filter(array_map(static fn (Token $t): ?int => $t->startOffset, $tokens), 'is_int');
         $ends = array_filter(array_map(static fn (Token $t): ?int => $t->endOffset, $tokens), 'is_int');
 
+        // Like Elasticsearch, the fingerprint spans the whole text when its end is known.
         return [new Token(
             $fingerprint,
             0,
-            [] === $starts ? null : min($starts),
-            [] === $ends ? null : max($ends),
+            null !== $this->finalOffset ? 0 : ([] === $starts ? null : min($starts)),
+            $this->finalOffset ?? ([] === $ends ? null : max($ends)),
             'fingerprint',
         )];
     }

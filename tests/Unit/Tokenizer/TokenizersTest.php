@@ -85,8 +85,11 @@ final class TokenizersTest extends TestCase
 
     public function testPattern(): void
     {
-        // Like Java, "_" is a word character for \W.
-        self::assertSame(['The', 'foo_bar', 'école'], (new PatternTokenizer())->tokenize('The foo_bar, école!'));
+        // Like Java (and Elasticsearch), \w is ASCII only by default.
+        self::assertSame(['The', 'foo_bar', 'cole'], (new PatternTokenizer())->tokenize('The foo_bar, école!'));
+        self::assertSame(['The', 'foo_bar', 'école'], (new PatternTokenizer('\W+', 'UNICODE_CHARACTER_CLASS'))->tokenize('The foo_bar, école!'));
+        self::assertSame(['The', 'foo_bar', 'école'], (new PatternTokenizer('(?U)\W+'))->tokenize('The foo_bar, école!'));
+        self::assertSame(['a-b', 'c_d'], (new PatternTokenizer('[\w-]+', '', 0))->tokenize('a-b é c_d'));
         self::assertSame(['a', 'b c', 'd'], (new PatternTokenizer(','))->tokenize('a,b c,d'));
         self::assertSame(['value', 'value 2'], (new PatternTokenizer('"((?:\\\\"|[^"]|\\\\")+)"', '', 1))->tokenize('"value", "value 2"'));
     }

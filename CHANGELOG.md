@@ -6,6 +6,43 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Elasticsearch parity test suite (`tests/Parity`, `composer parity`) run in CI
+  against Elasticsearch 8.19 and 9.5 with the ICU and phonetic plugins.
+- Native Porter stemmer (port of Lucene): `english` and `porter` stemmers, the
+  `porter_stem` filter and the English analyzer now match Elasticsearch and no
+  longer need `wamania/php-stemmer` (`porter2` is Snowball English).
+- Java flags for patterns (`CASE_INSENSITIVE|COMMENTS|DOTALL|MULTILINE|UNICODE_CHARACTER_CLASS`)
+  in the PHP API too.
+
+### Changed
+All changes below align the behaviour on Elasticsearch, as measured by the
+parity suite.
+- Patterns follow Java semantics: `\w`, `\d`, `\s` and `\b` are ASCII only
+  unless `UNICODE_CHARACTER_CLASS` or `(?U)` is used (`pattern` tokenizer,
+  `pattern_replace`, `pattern_capture`, `keyword_marker` patterns).
+- `WordDelimiterTokenFilter`: each part gets its own position; catenations
+  follow the first part of their run; tokens without delimiters are kept as is;
+  tokens made only of delimiters leave no position gap.
+- `ShingleTokenFilter`: a leading filler is emitted for a gap at the start, at
+  most `maxShingleSize - 1` fillers per gap, positions are renumbered, fillers
+  take the offset of the next token.
+- `PatternCaptureTokenFilter`: captures ordered by position in the term,
+  duplicates kept, captures equal to the term skipped.
+- `AsciiFoldingTokenFilter` with `preserveOriginal`: folded form first; letter
+  numbers (`Ⅻ`) are no longer folded.
+- `LowercaseTokenFilter` / `UppercaseTokenFilter`: simple (one character at a
+  time) case mapping, so `ß` and `ﬁ` are kept by `uppercase`.
+- `IcuFoldingTokenFilter` also folds decimal digits of every script.
+- `FingerprintTokenFilter` spans the whole text; `StopTokenFilter` with
+  `removeTrailing: false` keeps the last token only when the text ends right
+  after it (new `FinalOffsetAwareInterface`).
+- `metaphone` loaded from settings defaults to `max_code_len: 4`.
+
+### Fixed
+- Soundex ignored the H/W rule of American Soundex (`PHP` gave P100 instead of
+  P000).
+
 ## [1.0.0] - 2026-11-06
 
 Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.

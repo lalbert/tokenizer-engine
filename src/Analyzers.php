@@ -20,11 +20,11 @@ use TokenizerEngine\Tokenizer\WhitespaceTokenizer;
 /**
  * Ready to use analyzers mirroring Elasticsearch's built-in analyzers.
  *
- * The French analyzer uses a native port of Lucene's light French stemmer
- * (same results as Elasticsearch). The other language analyzers need the
- * wamania/php-stemmer package: they use Snowball stemmers, which are close to
- * but not identical with the "light" stemmers Elasticsearch uses for German,
- * Spanish, Italian and Portuguese.
+ * The English and French analyzers use native ports of Lucene's Porter and
+ * light French stemmers (same results as Elasticsearch). The other language
+ * analyzers need the wamania/php-stemmer package: they use Snowball stemmers,
+ * which are close to but not identical with the "light" stemmers
+ * Elasticsearch uses for German, Spanish, Italian and Portuguese.
  */
 final class Analyzers
 {

@@ -48,3 +48,38 @@ jobs:
       - name: Run tests with coverage
         if: ${{ matrix.php == '8.4' && matrix.intl }}
         run: vendor/bin/phpunit --coverage-text --coverage-clover build/clover.xml
+
+  parity:
+    name: Elasticsearch ${{ matrix.elasticsearch }} parity
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        elasticsearch: ['8.19.23', '9.5.5']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start Elasticsearch
+        run: |
+          docker build -q -t tokenizer-engine-es --build-arg ES_VERSION=${{ matrix.elasticsearch }} tests/Parity
+          docker run -d --name es -p 9200:9200 \
+            -e discovery.type=single-node -e xpack.security.enabled=false \
+            -e ES_JAVA_OPTS="-Xms512m -Xmx512m" tokenizer-engine-es
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - name: Wait for Elasticsearch
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' && exit 0
+            sleep 2
+          done
+          docker logs es
+          exit 1
+      - name: Compare with Elasticsearch
+        run: composer parity
+        env:
+          ELASTICSEARCH_URL: http://localhost:9200
+          PARITY_REQUIRED: '1'
