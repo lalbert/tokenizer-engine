@@ -22,12 +22,17 @@ final readonly class Token
         public ?int $startOffset = null,
         public ?int $endOffset = null,
         public string $type = self::TYPE_WORD,
+        /**
+         * Keyword tokens are protected from stemming (Elasticsearch's
+         * `keyword_marker` filter sets this flag).
+         */
+        public bool $keyword = false,
     ) {
     }
 
     public function withTerm(string $term): self
     {
-        return new self($term, $this->position, $this->startOffset, $this->endOffset, $this->type);
+        return new self($term, $this->position, $this->startOffset, $this->endOffset, $this->type, $this->keyword);
     }
 
     public function with(
@@ -36,6 +41,7 @@ final readonly class Token
         ?int $startOffset = null,
         ?int $endOffset = null,
         ?string $type = null,
+        ?bool $keyword = null,
     ): self {
         return new self(
             $term ?? $this->term,
@@ -43,6 +49,7 @@ final readonly class Token
             $startOffset ?? $this->startOffset,
             $endOffset ?? $this->endOffset,
             $type ?? $this->type,
+            $keyword ?? $this->keyword,
         );
     }
 

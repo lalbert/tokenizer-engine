@@ -34,7 +34,7 @@ final class AnalyzersTest extends TestCase
 
     public function testFrench(): void
     {
-        self::assertSame(['écol', 'cheval', 'hi'], Analyzers::french()->tokenize('L’école des chevaux, c’était hier !'));
+        self::assertSame(['ecol', 'cheval', 'hier'], Analyzers::french()->tokenize('L’école des chevaux, c’était hier !'));
     }
 
     public function testEnglish(): void

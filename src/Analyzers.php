@@ -8,6 +8,7 @@ use TokenizerEngine\TokenFilter\AsciiFoldingTokenFilter;
 use TokenizerEngine\TokenFilter\ElisionTokenFilter;
 use TokenizerEngine\TokenFilter\EnglishPossessiveTokenFilter;
 use TokenizerEngine\TokenFilter\FingerprintTokenFilter;
+use TokenizerEngine\TokenFilter\KeywordMarkerTokenFilter;
 use TokenizerEngine\TokenFilter\LowercaseTokenFilter;
 use TokenizerEngine\TokenFilter\StemmerTokenFilter;
 use TokenizerEngine\TokenFilter\StopTokenFilter;
@@ -19,9 +20,11 @@ use TokenizerEngine\Tokenizer\WhitespaceTokenizer;
 /**
  * Ready to use analyzers mirroring Elasticsearch's built-in analyzers.
  *
- * Language analyzers need the wamania/php-stemmer package. They use Snowball
- * stemmers, which are close to but not identical with the "light" stemmers
- * Elasticsearch uses for some languages (French, German, Spanish...).
+ * The French analyzer uses a native port of Lucene's light French stemmer
+ * (same results as Elasticsearch). The other language analyzers need the
+ * wamania/php-stemmer package: they use Snowball stemmers, which are close to
+ * but not identical with the "light" stemmers Elasticsearch uses for German,
+ * Spanish, Italian and Portuguese.
  */
 final class Analyzers
 {
@@ -96,74 +99,84 @@ final class Analyzers
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function english(string|array|null $stopWords = null): TokenizerEngine
+    public static function english(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
         return (new TokenizerEngine())
             ->addTokenizer(new StandardTokenizer())
             ->addTokenFilter(new EnglishPossessiveTokenFilter())
             ->addTokenFilter(new LowercaseTokenFilter())
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_english_'))
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
             ->addTokenFilter(new StemmerTokenFilter('english'));
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function french(string|array|null $stopWords = null): TokenizerEngine
+    public static function french(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
         return (new TokenizerEngine())
             ->addTokenizer(new StandardTokenizer())
             ->addTokenFilter(new ElisionTokenFilter(ElisionTokenFilter::FRENCH_ARTICLES, true))
             ->addTokenFilter(new LowercaseTokenFilter())
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_french_'))
-            ->addTokenFilter(new StemmerTokenFilter('french'));
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
+            ->addTokenFilter(new StemmerTokenFilter('light_french'));
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function italian(string|array|null $stopWords = null): TokenizerEngine
+    public static function italian(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
         return (new TokenizerEngine())
             ->addTokenizer(new StandardTokenizer())
             ->addTokenFilter(new ElisionTokenFilter(ElisionTokenFilter::ITALIAN_ARTICLES, true))
             ->addTokenFilter(new LowercaseTokenFilter())
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_italian_'))
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
             ->addTokenFilter(new StemmerTokenFilter('italian'));
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function german(string|array|null $stopWords = null): TokenizerEngine
+    public static function german(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('german', $stopWords);
+        return self::basicLanguage('german', $stopWords, $stemExclusion);
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function spanish(string|array|null $stopWords = null): TokenizerEngine
+    public static function spanish(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('spanish', $stopWords);
+        return self::basicLanguage('spanish', $stopWords, $stemExclusion);
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function portuguese(string|array|null $stopWords = null): TokenizerEngine
+    public static function portuguese(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('portuguese', $stopWords);
+        return self::basicLanguage('portuguese', $stopWords, $stemExclusion);
     }
 
     /**
-     * @param string|list<string>|null $stopWords null = the language's default list
+     * @param string|list<string>|null $stopWords     null = the language's default list
+     * @param list<string>             $stemExclusion words protected from stemming
      */
-    public static function dutch(string|array|null $stopWords = null): TokenizerEngine
+    public static function dutch(string|array|null $stopWords = null, array $stemExclusion = []): TokenizerEngine
     {
-        return self::basicLanguage('dutch', $stopWords);
+        return self::basicLanguage('dutch', $stopWords, $stemExclusion);
     }
 
     /**
@@ -191,13 +204,15 @@ final class Analyzers
 
     /**
      * @param string|list<string>|null $stopWords
+     * @param list<string>             $stemExclusion
      */
-    private static function basicLanguage(string $language, string|array|null $stopWords): TokenizerEngine
+    private static function basicLanguage(string $language, string|array|null $stopWords, array $stemExclusion): TokenizerEngine
     {
         return (new TokenizerEngine())
             ->addTokenizer(new StandardTokenizer())
             ->addTokenFilter(new LowercaseTokenFilter())
             ->addTokenFilter(new StopTokenFilter($stopWords ?? '_'.$language.'_'))
+            ->addTokenFilter(new KeywordMarkerTokenFilter($stemExclusion))
             ->addTokenFilter(new StemmerTokenFilter($language));
     }
 }

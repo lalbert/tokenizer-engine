@@ -4,7 +4,7 @@
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/lalbert/tokenizer-engine",
-    "keywords": ["tokenizer", "analyzer", "text-analysis", "elasticsearch", "ngram", "stemming", "stopwords", "normalization", "utf-8"],
+    "keywords": ["tokenizer", "analyzer", "text-analysis", "elasticsearch", "ngram", "stemming", "stopwords", "normalization", "utf-8", "phonetic", "minhash", "chunking", "rag"],
     "authors": [
         {
             "name": "Luc ALBERT",
@@ -28,8 +28,8 @@
         "wamania/php-stemmer": "^4.0"
     },
     "suggest": {
-        "ext-intl": "Unicode word segmentation (UAX #29) for StandardTokenizer and better ASCII folding",
-        "wamania/php-stemmer": "Required by StemmerTokenFilter and the language analyzers (french, english, ...)"
+        "ext-intl": "Unicode word and sentence segmentation, better ASCII folding, ICU normalization filters",
+        "wamania/php-stemmer": "Snowball stemmers (StemmerTokenFilter and the english, german, spanish, italian, portuguese, dutch analyzers)"
     },
     "autoload": {
         "psr-4": {

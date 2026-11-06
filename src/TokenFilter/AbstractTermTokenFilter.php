@@ -21,6 +21,11 @@ abstract class AbstractTermTokenFilter extends AbstractTokenFilter
         $result = [];
 
         foreach ($tokens as $token) {
+            if ($token->keyword && $this->skipKeywords()) {
+                $result[] = $token;
+                continue;
+            }
+
             $terms = $this->filterTerm($token->term, $token);
 
             if (null === $terms) {
@@ -38,6 +43,14 @@ abstract class AbstractTermTokenFilter extends AbstractTokenFilter
         }
 
         return $result;
+    }
+
+    /**
+     * Whether tokens flagged as keywords are left untouched (stemmers).
+     */
+    protected function skipKeywords(): bool
+    {
+        return false;
     }
 
     /**

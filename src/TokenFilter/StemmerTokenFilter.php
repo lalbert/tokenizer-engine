@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace TokenizerEngine\TokenFilter;
 
+use TokenizerEngine\Stemmer\FrenchLightStemmer;
+use TokenizerEngine\Stemmer\FrenchMinimalStemmer;
+use TokenizerEngine\Stemmer\SnowballStemmer;
+use TokenizerEngine\Stemmer\StemmerInterface;
 use TokenizerEngine\Token;
-use Wamania\Snowball\Stemmer\Stemmer;
-use Wamania\Snowball\StemmerFactory;
 
 /**
- * Reduces words to their stem ("chevaux" becomes "cheval"), using the
- * Snowball algorithms of the wamania/php-stemmer package.
+ * Reduces words to their stem ("chevaux" becomes "cheval"), like
+ * Elasticsearch's `stemmer` filter. Tokens flagged as keywords (see
+ * KeywordMarkerTokenFilter) are left untouched.
  *
- * Accepts Snowball language names and ISO codes (french, fr, english, en...)
- * plus the Elasticsearch stemmer names that map to them (light_french,
- * porter, porter2, light_german, ...). Note that Elasticsearch's "light_*"
- * and "minimal_*" stemmers are different algorithms: results can differ.
+ * - `light_french` and `minimal_french` are native ports of the Lucene
+ *   stemmers used by Elasticsearch (no dependency);
+ * - other languages use the Snowball algorithms of the wamania/php-stemmer
+ *   package (french, english, german...). Elasticsearch names that map to a
+ *   different algorithm (porter, light_german...) fall back to Snowball, so
+ *   results can differ from Elasticsearch for them.
  *
  * Terms are expected to be lowercased first.
  */
@@ -23,7 +28,6 @@ final class StemmerTokenFilter extends AbstractTermTokenFilter
 {
     private const ALIASES = [
         'porter' => 'english', 'porter2' => 'english', 'light_english' => 'english', 'minimal_english' => 'english', 'lovins' => 'english',
-        'light_french' => 'french', 'minimal_french' => 'french',
         'light_german' => 'german', 'german2' => 'german', 'minimal_german' => 'german',
         'light_spanish' => 'spanish',
         'light_italian' => 'italian',
@@ -35,30 +39,33 @@ final class StemmerTokenFilter extends AbstractTermTokenFilter
         'light_russian' => 'russian',
     ];
 
-    private readonly Stemmer $stemmer;
+    private readonly StemmerInterface $stemmer;
 
     /**
      * @var array<string, string>
      */
     private array $cache = [];
 
-    public function __construct(string $language = 'english')
+    public function __construct(string|StemmerInterface $language = 'english')
     {
-        if (!class_exists(StemmerFactory::class)) {
-            throw new \LogicException('StemmerTokenFilter requires the "wamania/php-stemmer" package: composer require wamania/php-stemmer');
-        }
+        $this->stemmer = $language instanceof StemmerInterface ? $language : self::create($language);
+    }
 
+    public static function create(string $language): StemmerInterface
+    {
         $language = strtolower($language);
 
-        if ('possessive_english' === $language) {
-            throw new \InvalidArgumentException('Use EnglishPossessiveTokenFilter for "possessive_english".');
-        }
+        return match ($language) {
+            'light_french' => new FrenchLightStemmer(),
+            'minimal_french' => new FrenchMinimalStemmer(),
+            'possessive_english' => throw new \InvalidArgumentException('Use EnglishPossessiveTokenFilter for "possessive_english".'),
+            default => new SnowballStemmer(self::ALIASES[$language] ?? $language),
+        };
+    }
 
-        try {
-            $this->stemmer = StemmerFactory::create(self::ALIASES[$language] ?? $language);
-        } catch (\Throwable $e) {
-            throw new \InvalidArgumentException(\sprintf('No stemmer available for language "%s".', $language), 0, $e);
-        }
+    protected function skipKeywords(): bool
+    {
+        return true;
     }
 
     protected function filterTerm(string $term, Token $token): string

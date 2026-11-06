@@ -22,6 +22,23 @@ Complete modernization. See [UPGRADE.md](UPGRADE.md) for the breaking changes.
 - `KeywordTokenizer`, `LetterTokenizer`, `PatternTokenizer`.
 - `MappingCharacterFilter`, `PatternReplaceCharacterFilter`.
 - Stop word lists for German, Spanish, Italian, Portuguese and Dutch.
+- Native French stemmers (`light_french`, `minimal_french`), ports of Apache
+  Lucene: the French analyzer now matches Elasticsearch and no longer needs
+  `wamania/php-stemmer`. Language analyzers accept `stemExclusion`.
+- `KeywordMarkerTokenFilter`, `StemmerOverrideTokenFilter` (and a `keyword`
+  flag on `Token`).
+- `UaxUrlEmailTokenizer`, `NGramTokenizer`, `EdgeNGramTokenizer`,
+  `PathHierarchyTokenizer`, `CharGroupTokenizer`.
+- `ShingleTokenFilter`, `KeepWordsTokenFilter`, `KeepTypesTokenFilter`,
+  `PatternReplaceTokenFilter`, `PatternCaptureTokenFilter`,
+  `MultiplexerTokenFilter`, `ConditionalTokenFilter`, `DecimalDigitTokenFilter`.
+- ICU components (ext-intl): `IcuNormalizerTokenFilter`,
+  `IcuFoldingTokenFilter`, `IcuNormalizerCharacterFilter`.
+- `PhoneticTokenFilter` with pluggable encoders: Soundex, Refined Soundex,
+  Metaphone, Kölner Phonetik, French Soundex, Soundex2.
+- `MinHashTokenFilter` with `MinHashTokenFilter::similarity()`.
+- `Chunker\TextChunker`: sentence aware document splitting for RAG, with
+  overlap and pluggable size measurement.
 - `AsciiFoldingTokenFilter`: `preserveOriginal` option; ICU transliteration.
 - `UniqueTokenFilter`: `onlyOnSamePosition` option.
 - GitHub Actions (PHP 8.2 to 8.5, with and without ext-intl), PHPStan,

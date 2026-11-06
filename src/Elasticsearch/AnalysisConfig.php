@@ -6,6 +6,7 @@ namespace TokenizerEngine\Elasticsearch;
 
 use TokenizerEngine\Analyzers;
 use TokenizerEngine\TokenFilter as F;
+use TokenizerEngine\TokenFilter\TokenFilterInterface;
 use TokenizerEngine\Tokenizer as T;
 use TokenizerEngine\TokenizerEngine;
 
@@ -131,18 +132,20 @@ final class AnalysisConfig
             $stopWords = (new F\StopTokenFilter(null, $path))->getStopWords();
         }
 
+        $stemExclusion = $p->list('stem_exclusion', []) ?? [];
+
         $engine = match ($type) {
             'standard' => Analyzers::standard($stopWords ?? '_none_', $p->int('max_token_length', 255)),
             'stop' => Analyzers::stop($stopWords ?? '_english_'),
             'fingerprint' => Analyzers::fingerprint((string) $p->string('separator', ' '), $p->int('max_output_size', 255), $stopWords ?? '_none_'),
             'pattern' => $this->patternAnalyzer($p, $stopWords),
-            'english' => Analyzers::english($stopWords),
-            'french' => Analyzers::french($stopWords),
-            'german' => Analyzers::german($stopWords),
-            'spanish' => Analyzers::spanish($stopWords),
-            'italian' => Analyzers::italian($stopWords),
-            'portuguese' => Analyzers::portuguese($stopWords),
-            'dutch' => Analyzers::dutch($stopWords),
+            'english' => Analyzers::english($stopWords, $stemExclusion),
+            'french' => Analyzers::french($stopWords, $stemExclusion),
+            'german' => Analyzers::german($stopWords, $stemExclusion),
+            'spanish' => Analyzers::spanish($stopWords, $stemExclusion),
+            'italian' => Analyzers::italian($stopWords, $stemExclusion),
+            'portuguese' => Analyzers::portuguese($stopWords, $stemExclusion),
+            'dutch' => Analyzers::dutch($stopWords, $stemExclusion),
             default => Analyzers::get($type),
         };
 
@@ -178,7 +181,7 @@ final class AnalysisConfig
             /** @var array<string, mixed> $reference */
             $type = (string) ($reference['type'] ?? throw new \InvalidArgumentException(\sprintf('Inline %s definitions must have a "type".', $kind)));
 
-            return [$type, new Params($reference, \sprintf('%s "%s"', $kind, $type))];
+            return [$type, new Params($reference, \sprintf('%s "%s"', $kind, $type), $this->filterResolver())];
         }
 
         $name = (string) $reference;
@@ -188,10 +191,24 @@ final class AnalysisConfig
             $definition = self::definition($definitions[$name], $kind, $name);
             $type = (string) ($definition['type'] ?? throw new \InvalidArgumentException(\sprintf('The %s "%s" must have a "type".', $kind, $name)));
 
-            return [$type, new Params($definition, \sprintf('%s "%s"', $kind, $name))];
+            return [$type, new Params($definition, \sprintf('%s "%s"', $kind, $name), $this->filterResolver())];
         }
 
-        return [$name, new Params([], \sprintf('%s "%s"', $kind, $name))];
+        return [$name, new Params([], \sprintf('%s "%s"', $kind, $name), $this->filterResolver())];
+    }
+
+    /**
+     * @return \Closure(string): TokenFilterInterface
+     */
+    private function filterResolver(): \Closure
+    {
+        return function (string $name): TokenFilterInterface {
+            [$type, $params] = $this->resolve('filter', $name);
+            $filter = $this->registry->createTokenFilter($type, $params);
+            $this->checkUnused($params);
+
+            return $filter;
+        };
     }
 
     /**

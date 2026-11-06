@@ -1,0 +1,16 @@
+# Expected stems from Apache Lucene's TestFrenchMinimalStemFilter (Apache-2.0).
+chevaux	cheval
+hiboux	hibou
+chantés	chant
+chanter	chant
+chante	chant
+baronnes	baron
+barons	baron
+baron	baron
+1234555	1234555
+12333345	12333345
+1234	1234
+abcdeff	abcdef
+abcccddeef	abcccddeef
+créées	cré
+22hh00	22hh00

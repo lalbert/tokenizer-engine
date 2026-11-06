@@ -41,6 +41,10 @@ final class ComponentRegistry
         $registry
             ->addCharFilter('html_strip', static fn (Params $p) => new C\HTMLStripCharacterFilter($p->list('escaped_tags', []) ?? []))
             ->addCharFilter('mapping', static fn (Params $p) => new C\MappingCharacterFilter($p->list('mappings', []) ?? [], $p->string('mappings_path')))
+            ->addCharFilter('icu_normalizer', static fn (Params $p) => new C\IcuNormalizerCharacterFilter(
+                (string) $p->string('name', 'nfkc_cf'),
+                (string) $p->string('mode', 'compose'),
+            ))
             ->addCharFilter('pattern_replace', static fn (Params $p) => new C\PatternReplaceCharacterFilter(
                 (string) $p->string('pattern', ''),
                 (string) $p->string('replacement', ''),
@@ -57,6 +61,36 @@ final class ComponentRegistry
                 return new T\KeywordTokenizer();
             })
             ->addTokenizer('letter', static fn () => new T\LetterTokenizer())
+            ->addTokenizer('uax_url_email', static fn (Params $p) => new T\UaxUrlEmailTokenizer($p->int('max_token_length', 255)))
+            ->addTokenizer('ngram', $ngramTokenizer = static fn (Params $p) => new T\NGramTokenizer(
+                $p->int('min_gram', 1),
+                $p->int('max_gram', 2),
+                $p->list('token_chars', []) ?? [],
+                (string) $p->string('custom_token_chars', ''),
+            ))
+            ->addTokenizer('nGram', $ngramTokenizer)
+            ->addTokenizer('edge_ngram', $edgeTokenizer = static fn (Params $p) => new T\EdgeNGramTokenizer(
+                $p->int('min_gram', 1),
+                $p->int('max_gram', 2),
+                $p->list('token_chars', []) ?? [],
+                (string) $p->string('custom_token_chars', ''),
+            ))
+            ->addTokenizer('edgeNGram', $edgeTokenizer)
+            ->addTokenizer('path_hierarchy', $path = static function (Params $p) {
+                $p->int('buffer_size', 1024);
+
+                return new T\PathHierarchyTokenizer(
+                    (string) $p->string('delimiter', '/'),
+                    $p->string('replacement'),
+                    $p->bool('reverse', false),
+                    $p->int('skip', 0),
+                );
+            })
+            ->addTokenizer('PathHierarchy', $path)
+            ->addTokenizer('char_group', static fn (Params $p) => new T\CharGroupTokenizer(
+                $p->list('tokenize_on_chars', ['whitespace']) ?? ['whitespace'],
+                $p->int('max_token_length', 255),
+            ))
             ->addTokenizer('pattern', static fn (Params $p) => new T\PatternTokenizer(
                 (string) $p->string('pattern', '\W+'),
                 self::javaFlags($p->string('flags', '')),
@@ -147,6 +181,69 @@ final class ComponentRegistry
                 );
             })
             ->addTokenFilter('synonym_graph', $synonym)
+            ->addTokenFilter('keyword_marker', static fn (Params $p) => new F\KeywordMarkerTokenFilter(
+                $p->list('keywords', []) ?? [],
+                $p->string('keywords_path'),
+                $p->string('keywords_pattern'),
+                $p->bool('ignore_case', false),
+            ))
+            ->addTokenFilter('stemmer_override', static fn (Params $p) => new F\StemmerOverrideTokenFilter(
+                $p->list('rules', []) ?? [],
+                $p->string('rules_path'),
+            ))
+            ->addTokenFilter('shingle', static fn (Params $p) => new F\ShingleTokenFilter(
+                $p->int('min_shingle_size', 2),
+                $p->int('max_shingle_size', 2),
+                $p->bool('output_unigrams', true),
+                $p->bool('output_unigrams_if_no_shingles', false),
+                (string) $p->string('token_separator', ' '),
+                (string) $p->string('filler_token', '_'),
+            ))
+            ->addTokenFilter('keep', static fn (Params $p) => new F\KeepWordsTokenFilter(
+                $p->list('keep_words', []) ?? [],
+                $p->string('keep_words_path'),
+                $p->bool('keep_words_case', false),
+            ))
+            ->addTokenFilter('keep_types', static fn (Params $p) => new F\KeepTypesTokenFilter(
+                $p->list('types', []) ?? [],
+                (string) $p->string('mode', 'include'),
+            ))
+            ->addTokenFilter('pattern_replace', static fn (Params $p) => new F\PatternReplaceTokenFilter(
+                (string) $p->string('pattern', ''),
+                (string) $p->string('replacement', ''),
+                $p->bool('all', true),
+                self::javaFlags($p->string('flags', '')),
+            ))
+            ->addTokenFilter('pattern_capture', static fn (Params $p) => new F\PatternCaptureTokenFilter(
+                $p->list('patterns', []) ?? [],
+                $p->bool('preserve_original', true),
+            ))
+            ->addTokenFilter('multiplexer', static fn (Params $p) => new F\MultiplexerTokenFilter(
+                array_map(
+                    static fn (string $chain): array => array_map(
+                        static fn (string $name): TokenFilterInterface => $p->filter(trim($name)),
+                        array_values(array_filter(explode(',', $chain), static fn (string $n): bool => '' !== trim($n))),
+                    ),
+                    $p->list('filters', []) ?? [],
+                ),
+                $p->bool('preserve_original', true),
+            ))
+            ->addTokenFilter('condition', static function (): never {
+                throw new \InvalidArgumentException('The "condition" filter needs a Painless script, which is not supported: use ConditionalTokenFilter with a PHP callable.');
+            })
+            ->addTokenFilter('decimal_digit', static fn () => new F\DecimalDigitTokenFilter())
+            ->addTokenFilter('icu_normalizer', static fn (Params $p) => new F\IcuNormalizerTokenFilter(
+                (string) $p->string('name', 'nfkc_cf'),
+                (string) $p->string('mode', 'compose'),
+            ))
+            ->addTokenFilter('icu_folding', static fn () => new F\IcuFoldingTokenFilter())
+            ->addTokenFilter('phonetic', static fn (Params $p) => new F\PhoneticTokenFilter(
+                (string) $p->string('encoder', 'metaphone'),
+                $p->bool('replace', true),
+                $p->int('max_code_len', 0),
+            ))
+            // Same purpose as Elasticsearch's min_hash, different algorithm (see MinHashTokenFilter).
+            ->addTokenFilter('min_hash', static fn (Params $p) => new F\MinHashTokenFilter($p->int('hash_count', 128)))
             // Not an Elasticsearch filter, provided by this library.
             ->addTokenFilter('levenshtein', static fn (Params $p) => new F\LevenshteinTokenFilter(
                 $p->list('words', []) ?? [],

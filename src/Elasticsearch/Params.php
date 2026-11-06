@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace TokenizerEngine\Elasticsearch;
 
+use TokenizerEngine\TokenFilter\TokenFilterInterface;
+
 /**
  * Typed access to the parameters of an Elasticsearch component definition.
  * Accepts Elasticsearch's lenient values ("true", "3").
@@ -16,10 +18,26 @@ final class Params
     private array $read = ['type' => true];
 
     /**
-     * @param array<string, mixed> $params
+     * @param array<string, mixed>                          $params
+     * @param (\Closure(string): TokenFilterInterface)|null $filterResolver resolves filter names (custom or built-in)
      */
-    public function __construct(private readonly array $params = [], private readonly string $component = 'component')
+    public function __construct(
+        private readonly array $params = [],
+        private readonly string $component = 'component',
+        private readonly ?\Closure $filterResolver = null,
+    ) {
+    }
+
+    /**
+     * Builds a token filter referenced by name (used by `multiplexer`).
+     */
+    public function filter(string $name): TokenFilterInterface
     {
+        if (null === $this->filterResolver) {
+            throw new \LogicException(\sprintf('%s cannot reference other filters here.', $this->component));
+        }
+
+        return ($this->filterResolver)($name);
     }
 
     public function has(string $name): bool

@@ -11,7 +11,8 @@ Typical uses, without running a search cluster:
 
 - normalize and deduplicate strings (names, addresses, products);
 - autocompletion and fuzzy matching on small datasets stored in SQL;
-- prepare text before computing embeddings or chunking for RAG;
+- detect near-duplicates (fingerprint, phonetic codes, MinHash);
+- split documents into passages for embeddings / RAG (`TextChunker`);
 - check offline what an Elasticsearch analyzer configuration produces.
 
 > This library is not affiliated with Elastic. It mirrors the behaviour of
@@ -28,7 +29,8 @@ Requirements: PHP 8.2+ and `ext-mbstring`. Recommended:
 
 - `ext-intl`, for Unicode word segmentation (UAX #29) and ASCII folding with ICU;
   a pure PHP fallback is used otherwise;
-- `wamania/php-stemmer`, required by `StemmerTokenFilter` and the language analyzers:
+- `wamania/php-stemmer`, for Snowball stemming and the non-French language
+  analyzers (French stemming is built in):
 
 ```bash
 composer require wamania/php-stemmer
@@ -40,7 +42,10 @@ composer require wamania/php-stemmer
 use TokenizerEngine\Analyzers;
 
 Analyzers::french()->tokenize('L’école des chevaux, c’était hier !');
-// ['écol', 'cheval', 'hi']
+// ['ecol', 'cheval', 'hier']  (same output as Elasticsearch's french analyzer)
+
+Analyzers::french(stemExclusion: ['chevaux'])->tokenize('Les chevaux');
+// ['chevaux']
 
 Analyzers::english()->tokenize("The QUICK brown foxes jumped over John's lazy dogs");
 // ['quick', 'brown', 'fox', 'jump', 'over', 'john', 'lazi', 'dog']
@@ -158,6 +163,49 @@ $registry = ComponentRegistry::default()
 $config = new AnalysisConfig($settings, $registry);
 ```
 
+## Near-duplicates: phonetic codes and MinHash
+
+```php
+use TokenizerEngine\TokenFilter\{MinHashTokenFilter, PhoneticTokenFilter, ShingleTokenFilter};
+
+(new PhoneticTokenFilter('soundex2'))->filter(['Lefèvre', 'Lefeuvre']);
+// ['LFVR', 'LFVR']
+
+$signature = (new TokenizerEngine())
+    ->addTokenizer(new StandardTokenizer())
+    ->addTokenFilter(new LowercaseTokenFilter())
+    ->addTokenFilter(new ShingleTokenFilter(2, 2, outputUnigrams: false))
+    ->addTokenFilter(new MinHashTokenFilter(256));
+
+MinHashTokenFilter::similarity($signature->tokenize($textA), $signature->tokenize($textB));
+// 0.71 (estimated Jaccard similarity of the word pairs)
+```
+
+Phonetic encoders: `soundex`, `refined_soundex`, `metaphone` (English),
+`cologne` (German, Kölner Phonetik), `soundex_fr` (Soundex with the French
+letter table), `soundex2` (French, Frédéric BROUARD). Implement
+`PhoneticEncoderInterface` to plug any other algorithm.
+
+## Splitting documents for RAG
+
+`TextChunker` is not an Elasticsearch component: it splits a text into
+passages of a maximum size, at sentence boundaries when possible (then words,
+then characters), with an optional overlap. Each `Chunk` keeps its offsets in
+the original text.
+
+```php
+use TokenizerEngine\Chunker\TextChunker;
+
+// At most 1000 characters per passage, 200 characters of overlap.
+foreach ((new TextChunker(1000, 200, locale: 'fr'))->chunk($document) as $chunk) {
+    $chunk->text; $chunk->startOffset; $chunk->endOffset; $chunk->size;
+}
+
+// Sizes measured in tokens of an analyzer, or with any callable
+// (e.g. an LLM token counter): new TextChunker(512, 64, fn (string $s): int => $counter->count($s)).
+TextChunker::byTokens(Analyzers::standard(), maxTokens: 300, overlapTokens: 50)->chunk($document);
+```
+
 ## Components
 
 | Class | Elasticsearch type | Notes |
@@ -166,18 +214,34 @@ $config = new AnalysisConfig($settings, $registry);
 | `HTMLStripCharacterFilter` | `html_strip` | keeps words apart, decodes entities, drops `<script>`/`<style>` |
 | `MappingCharacterFilter` | `mapping` | |
 | `PatternReplaceCharacterFilter` | `pattern_replace` | |
+| `IcuNormalizerCharacterFilter` | `icu_normalizer` (ICU plugin) | requires ext-intl |
 | **Tokenizers** | | |
 | `StandardTokenizer` | `standard` | UAX #29 via ICU, regex fallback |
 | `WhitespaceTokenizer` | `whitespace` | |
 | `LetterTokenizer` | `letter` | |
 | `KeywordTokenizer` | `keyword` | |
 | `PatternTokenizer` | `pattern` | |
+| `UaxUrlEmailTokenizer` | `uax_url_email` | URLs need a scheme or `www.` |
+| `NGramTokenizer`, `EdgeNGramTokenizer` | `ngram`, `edge_ngram` | `token_chars` supported |
+| `PathHierarchyTokenizer` | `path_hierarchy` | |
+| `CharGroupTokenizer` | `char_group` | |
 | **Token filters** | | |
 | `LowercaseTokenFilter`, `UppercaseTokenFilter` | `lowercase`, `uppercase` | |
 | `AsciiFoldingTokenFilter` | `asciifolding` | optional locale rules (`de`: ä → ae) |
 | `StopTokenFilter` | `stop` | `_english_`, `_french_`, `_german_`, `_spanish_`, `_italian_`, `_portuguese_`, `_dutch_` |
 | `ElisionTokenFilter` | `elision` | French articles by default, handles `’` |
-| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | Snowball stemmers |
+| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `light_french` / `minimal_french` (Lucene ports), Snowball otherwise |
+| `KeywordMarkerTokenFilter` | `keyword_marker` | protects words from stemming |
+| `StemmerOverrideTokenFilter` | `stemmer_override` | |
+| `ShingleTokenFilter` | `shingle` | |
+| `PhoneticTokenFilter` | `phonetic` (phonetic plugin) | encoders listed above |
+| `MinHashTokenFilter` | `min_hash` | different algorithm (see Differences) |
+| `IcuNormalizerTokenFilter`, `IcuFoldingTokenFilter` | `icu_normalizer`, `icu_folding` (ICU plugin) | require ext-intl |
+| `DecimalDigitTokenFilter` | `decimal_digit` | |
+| `KeepWordsTokenFilter`, `KeepTypesTokenFilter` | `keep`, `keep_types` | |
+| `PatternReplaceTokenFilter`, `PatternCaptureTokenFilter` | `pattern_replace`, `pattern_capture` | |
+| `MultiplexerTokenFilter` | `multiplexer` | |
+| `ConditionalTokenFilter` | `condition` | PHP callable instead of a Painless script (not loadable from settings) |
 | `EnglishPossessiveTokenFilter` | `stemmer` (`possessive_english`) | |
 | `SynonymTokenFilter` | `synonym`, `synonym_graph` | Solr format, multi-word |
 | `NGramTokenFilter`, `EdgeNGramTokenFilter` | `ngram`, `edge_ngram` | |
@@ -212,9 +276,13 @@ to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 
 ## Differences with Elasticsearch
 
-- Stemming uses the Snowball algorithms. Elasticsearch's language analyzers use
-  "light" stemmers for some languages (French, German, Spanish, Italian,
-  Portuguese), so stems can differ.
+- French stemming (`light_french`, `minimal_french`) is a port of Lucene's code
+  and gives the same stems as Elasticsearch. Other languages use the Snowball
+  algorithms, while Elasticsearch uses "light" stemmers for German, Spanish,
+  Italian and Portuguese, so stems can differ there.
+- `min_hash` uses k seeded hash functions instead of Elasticsearch's bucket
+  approach: signatures are not interchangeable with Elasticsearch's.
+- `uax_url_email` does not recognize bare domain names (`example.com`).
 - Offsets are counted in Unicode code points (Elasticsearch counts UTF-16 code
   units) and refer to the text after character filters (Elasticsearch maps them
   back to the original text).
@@ -222,8 +290,9 @@ to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
   sub-tokens at the position of the original token instead of building a token
   graph.
 - Regular expressions are PCRE, not Java.
-- Not implemented: keyword marker, stemmer override, normalizers, ICU and
-  phonetic plugins, CJK specific analysis.
+- Not implemented: normalizers, `hunspell`, Painless scripts, ICU tokenizer
+  and transforms, Beider-Morse and Double Metaphone encoders, CJK specific
+  analysis.
 
 ## Data sources and licenses
 
@@ -231,6 +300,11 @@ to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
   Elasticsearch uses for `_english_`); other languages from the
   [Snowball project](https://snowballstem.org/) (BSD-3-Clause). See
   `resources/stop-words/`.
+- French light and minimal stemmers: ports of Apache Lucene (Apache-2.0),
+  algorithms by Jacques SAVOY (BSD); see the headers of `src/Stemmer/`.
+- Soundex2: implemented from the description published by Frédéric BROUARD
+  (https://sqlpro.developpez.com/cours/soundex/), which states "copyright
+  Frédéric BROUARD". The code here is an independent implementation.
 - ASCII folding fallback table derived from WordPress' `remove_accents()`.
 
 ## Development
