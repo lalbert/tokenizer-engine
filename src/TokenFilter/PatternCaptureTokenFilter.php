@@ -29,14 +29,17 @@ final class PatternCaptureTokenFilter extends AbstractTermTokenFilter
 
     protected function filterTerm(string $term, Token $token): array
     {
+        // Captures of every pattern, ordered by position in the term like
+        // Elasticsearch; duplicates are kept, empty captures and captures equal
+        // to the term itself are skipped.
         $captures = [];
 
-        foreach ($this->regexes as $regex) {
-            preg_match_all($regex, $term, $matches, \PREG_SET_ORDER);
-            foreach ($matches as $match) {
-                foreach (\array_slice($match, 1) as $group) {
-                    if ('' !== $group) {
-                        $captures[$group] = true;
+        foreach ($this->regexes as $p => $regex) {
+            preg_match_all($regex, $term, $matches, \PREG_SET_ORDER | \PREG_OFFSET_CAPTURE);
+            foreach ($matches as $m => $match) {
+                foreach (\array_slice($match, 1) as $g => [$group, $offset]) {
+                    if ('' !== $group && $offset >= 0 && $group !== $term) {
+                        $captures[] = [$offset, -\strlen($group), $p, $m, $g, $group];
                     }
                 }
             }
@@ -46,11 +49,9 @@ final class PatternCaptureTokenFilter extends AbstractTermTokenFilter
             return [$term];
         }
 
-        $terms = array_map('strval', array_keys($captures));
-        if ($this->preserveOriginal) {
-            $terms = array_values(array_unique([$term, ...$terms]));
-        }
+        usort($captures, static fn (array $a, array $b): int => [$a[0], $a[1], $a[2], $a[3], $a[4]] <=> [$b[0], $b[1], $b[2], $b[3], $b[4]]);
+        $terms = array_column($captures, 5);
 
-        return $terms;
+        return $this->preserveOriginal ? [$term, ...$terms] : $terms;
     }
 }

@@ -29,7 +29,7 @@
     },
     "suggest": {
         "ext-intl": "Unicode word and sentence segmentation, better ASCII folding, ICU normalization filters",
-        "wamania/php-stemmer": "Snowball stemmers (StemmerTokenFilter and the english, german, spanish, italian, portuguese, dutch analyzers)"
+        "wamania/php-stemmer": "Snowball stemmers (StemmerTokenFilter and the german, spanish, italian, portuguese, dutch analyzers)"
     },
     "autoload": {
         "psr-4": {

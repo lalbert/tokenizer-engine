@@ -38,7 +38,7 @@ final class AsciiFoldingTokenFilter extends AbstractTermTokenFilter
         $folded = $this->fold($term);
 
         if ($this->preserveOriginal && $folded !== $term) {
-            return [$term, $folded];
+            return [$folded, $term];
         }
 
         return $folded;
@@ -72,7 +72,7 @@ final class AsciiFoldingTokenFilter extends AbstractTermTokenFilter
     private static function transliterator(): ?\Transliterator
     {
         if (null === self::$transliterator && class_exists(\Transliterator::class)) {
-            self::$transliterator = \Transliterator::create('NFC; Latin-ASCII') ?? null;
+            self::$transliterator = \Transliterator::create('[^\p{Nl}] NFC; [^\p{Nl}] Latin-ASCII') ?? null;
         }
 
         return self::$transliterator;

@@ -6,6 +6,7 @@ namespace TokenizerEngine\Elasticsearch;
 
 use TokenizerEngine\CharacterFilter as C;
 use TokenizerEngine\CharacterFilter\CharacterFilterInterface;
+use TokenizerEngine\Stemmer\SnowballStemmer;
 use TokenizerEngine\TokenFilter as F;
 use TokenizerEngine\TokenFilter\TokenFilterInterface;
 use TokenizerEngine\Tokenizer as T;
@@ -48,7 +49,7 @@ final class ComponentRegistry
             ->addCharFilter('pattern_replace', static fn (Params $p) => new C\PatternReplaceCharacterFilter(
                 (string) $p->string('pattern', ''),
                 (string) $p->string('replacement', ''),
-                self::javaFlags($p->string('flags', '')),
+                (string) $p->string('flags', ''),
             ));
 
         // Tokenizers
@@ -93,7 +94,7 @@ final class ComponentRegistry
             ))
             ->addTokenizer('pattern', static fn (Params $p) => new T\PatternTokenizer(
                 (string) $p->string('pattern', '\W+'),
-                self::javaFlags($p->string('flags', '')),
+                (string) $p->string('flags', ''),
                 $p->int('group', -1),
             ));
 
@@ -166,7 +167,7 @@ final class ComponentRegistry
                     ? new F\EnglishPossessiveTokenFilter()
                     : new F\StemmerTokenFilter($language);
             })
-            ->addTokenFilter('snowball', static fn (Params $p) => new F\StemmerTokenFilter((string) $p->string('language', 'english')))
+            ->addTokenFilter('snowball', static fn (Params $p) => new F\StemmerTokenFilter(new SnowballStemmer((string) $p->string('language', 'English'))))
             ->addTokenFilter('porter_stem', static fn () => new F\StemmerTokenFilter('english'))
             ->addTokenFilter('synonym', $synonym = static function (Params $p) {
                 $p->bool('lenient', false);
@@ -212,7 +213,7 @@ final class ComponentRegistry
                 (string) $p->string('pattern', ''),
                 (string) $p->string('replacement', ''),
                 $p->bool('all', true),
-                self::javaFlags($p->string('flags', '')),
+                (string) $p->string('flags', ''),
             ))
             ->addTokenFilter('pattern_capture', static fn (Params $p) => new F\PatternCaptureTokenFilter(
                 $p->list('patterns', []) ?? [],
@@ -240,7 +241,7 @@ final class ComponentRegistry
             ->addTokenFilter('phonetic', static fn (Params $p) => new F\PhoneticTokenFilter(
                 (string) $p->string('encoder', 'metaphone'),
                 $p->bool('replace', true),
-                $p->int('max_code_len', 0),
+                $p->int('max_code_len', 4),
             ))
             // Same purpose as Elasticsearch's min_hash, different algorithm (see MinHashTokenFilter).
             ->addTokenFilter('min_hash', static fn (Params $p) => new F\MinHashTokenFilter($p->int('hash_count', 128)))
@@ -311,21 +312,6 @@ final class ComponentRegistry
     public function createTokenFilter(string $type, Params $params): TokenFilterInterface
     {
         return ($this->tokenFilters[$type] ?? throw self::unknown('filter', $type))($params);
-    }
-
-    /**
-     * Converts Java Pattern flags ("CASE_INSENSITIVE|COMMENTS") to PCRE modifiers.
-     */
-    private static function javaFlags(?string $flags): string
-    {
-        $map = ['CASE_INSENSITIVE' => 'i', 'COMMENTS' => 'x', 'DOTALL' => 's', 'MULTILINE' => 'm'];
-        $modifiers = '';
-
-        foreach (preg_split('/\s*\|\s*/', (string) $flags, -1, \PREG_SPLIT_NO_EMPTY) ?: [] as $flag) {
-            $modifiers .= $map[strtoupper($flag)] ?? '';
-        }
-
-        return $modifiers;
     }
 
     private static function unknown(string $kind, string $type): \InvalidArgumentException

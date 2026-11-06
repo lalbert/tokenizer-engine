@@ -10,8 +10,9 @@ namespace TokenizerEngine\Tests\Parity;
  * Each case is either a built-in analyzer name ('analyzer') or an inline
  * custom analyzer ('tokenizer', 'char_filter', 'filter'), exactly as sent to
  * Elasticsearch. 'compare' restricts what is compared (default: terms,
- * positions, offsets); every restriction must be explained in 'reason' and
- * documented in the README ("Differences with Elasticsearch").
+ * positions, offsets) and 'texts' the texts used; every restriction must be
+ * explained in 'reason' and documented in the README ("Differences with
+ * Elasticsearch").
  */
 final class ParityCases
 {
@@ -34,6 +35,15 @@ final class ParityCases
     public static function all(): array
     {
         $standard = static fn (array $filter, array $extra = []): array => ['tokenizer' => 'standard', 'filter' => $filter] + $extra;
+        $snowball = [
+            'compare' => ['positions', 'offsets'],
+            'reason' => 'Snowball stemmer here, "light" stemmer in Elasticsearch: tokenization and stop words are compared, not stems.',
+        ];
+        $phonetic = [
+            'plugin' => 'analysis-phonetic',
+            'texts' => ['english', 'mixed case', 'url email', 'path', 'html', 'spaces'],
+            'reason' => 'Accented letters are folded before encoding here; Elasticsearch leaves such words unchanged.',
+        ];
 
         return [
             // Built-in analyzers
@@ -45,11 +55,11 @@ final class ParityCases
             'analyzer fingerprint' => ['analyzer' => 'fingerprint'],
             'analyzer english' => ['analyzer' => 'english'],
             'analyzer french' => ['analyzer' => 'french'],
-            'analyzer german' => ['analyzer' => 'german'],
-            'analyzer spanish' => ['analyzer' => 'spanish'],
-            'analyzer italian' => ['analyzer' => 'italian'],
-            'analyzer portuguese' => ['analyzer' => 'portuguese'],
-            'analyzer dutch' => ['analyzer' => 'dutch'],
+            'analyzer german' => ['analyzer' => 'german'] + $snowball,
+            'analyzer spanish' => ['analyzer' => 'spanish'] + $snowball,
+            'analyzer italian' => ['analyzer' => 'italian'] + $snowball,
+            'analyzer portuguese' => ['analyzer' => 'portuguese'] + $snowball,
+            'analyzer dutch' => ['analyzer' => 'dutch'] + $snowball,
 
             // Tokenizers
             'tokenizer standard' => ['tokenizer' => 'standard'],
@@ -59,6 +69,8 @@ final class ParityCases
             'tokenizer keyword' => ['tokenizer' => 'keyword'],
             'tokenizer pattern' => ['tokenizer' => 'pattern'],
             'tokenizer pattern comma' => ['tokenizer' => ['type' => 'pattern', 'pattern' => ',']],
+            'tokenizer pattern unicode' => ['tokenizer' => ['type' => 'pattern', 'pattern' => '\\W+', 'flags' => 'UNICODE_CHARACTER_CLASS']],
+            'tokenizer pattern group' => ['tokenizer' => ['type' => 'pattern', 'pattern' => '(\\p{Lu})\\p{Ll}+', 'group' => 1]],
             'tokenizer uax_url_email' => ['tokenizer' => 'uax_url_email'],
             'tokenizer ngram' => ['tokenizer' => ['type' => 'ngram', 'min_gram' => 2, 'max_gram' => 3, 'token_chars' => ['letter', 'digit']]],
             'tokenizer edge_ngram' => ['tokenizer' => ['type' => 'edge_ngram', 'min_gram' => 1, 'max_gram' => 4, 'token_chars' => ['letter']]],
@@ -80,7 +92,7 @@ final class ParityCases
             'filter stop english' => $standard(['lowercase', 'stop']),
             'filter stop french' => $standard(['lowercase', ['type' => 'stop', 'stopwords' => '_french_']]),
             'filter stop custom keep trailing' => $standard([['type' => 'stop', 'stopwords' => ['the', 'bone', 'été'], 'remove_trailing' => false]]),
-            'filter elision' => $standard([['type' => 'elision', 'articles_case' => true]]),
+            'filter elision' => $standard([['type' => 'elision', 'articles_case' => true, 'articles' => ['l', 'm', 't', 'qu', 'n', 's', 'j', 'd', 'c', 'jusqu', 'quoiqu', 'lorsqu', 'puisqu']]]),
             'filter ngram' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'ngram', 'min_gram' => 1, 'max_gram' => 2]]],
             'filter edge_ngram' => $standard([['type' => 'edge_ngram', 'min_gram' => 2, 'max_gram' => 4]]),
             'filter reverse' => $standard(['reverse']),
@@ -92,6 +104,8 @@ final class ParityCases
             'filter fingerprint' => $standard(['lowercase', 'fingerprint']),
             'filter word_delimiter' => ['tokenizer' => 'whitespace', 'filter' => ['word_delimiter']],
             'filter word_delimiter catenate' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'word_delimiter', 'catenate_words' => true, 'catenate_numbers' => true]]],
+            'filter word_delimiter catenate_all preserve_original' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'word_delimiter', 'catenate_all' => true, 'catenate_words' => true, 'preserve_original' => true]]],
+            'filter word_delimiter no parts' => ['tokenizer' => 'whitespace', 'filter' => [['type' => 'word_delimiter', 'generate_word_parts' => false, 'generate_number_parts' => false, 'catenate_all' => true]]],
             'filter apostrophe' => $standard(['apostrophe']),
             'filter possessive_english' => $standard([['type' => 'stemmer', 'language' => 'possessive_english']]),
             'filter stemmer english' => $standard(['lowercase', ['type' => 'stemmer', 'language' => 'english']]),
@@ -116,10 +130,10 @@ final class ParityCases
             'filter icu_normalizer' => $standard(['icu_normalizer'], ['plugin' => 'analysis-icu']),
             'filter icu_folding' => $standard(['icu_folding'], ['plugin' => 'analysis-icu']),
             'char_filter icu_normalizer' => ['tokenizer' => 'standard', 'char_filter' => ['icu_normalizer'], 'plugin' => 'analysis-icu'],
-            'filter phonetic soundex' => $standard([['type' => 'phonetic', 'encoder' => 'soundex']], ['plugin' => 'analysis-phonetic']),
-            'filter phonetic refined_soundex' => $standard([['type' => 'phonetic', 'encoder' => 'refined_soundex']], ['plugin' => 'analysis-phonetic']),
-            'filter phonetic metaphone' => $standard([['type' => 'phonetic', 'encoder' => 'metaphone']], ['plugin' => 'analysis-phonetic']),
-            'filter phonetic cologne' => $standard([['type' => 'phonetic', 'encoder' => 'cologne']], ['plugin' => 'analysis-phonetic']),
+            'filter phonetic soundex' => $standard([['type' => 'phonetic', 'encoder' => 'soundex']], $phonetic),
+            'filter phonetic refined_soundex' => $standard([['type' => 'phonetic', 'encoder' => 'refined_soundex']], $phonetic),
+            'filter phonetic metaphone' => $standard([['type' => 'phonetic', 'encoder' => 'metaphone']], $phonetic),
+            'filter phonetic cologne' => $standard([['type' => 'phonetic', 'encoder' => 'cologne']], $phonetic),
         ];
     }
 }

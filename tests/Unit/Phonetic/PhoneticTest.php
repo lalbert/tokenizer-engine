@@ -40,7 +40,10 @@ final class PhoneticTest extends TestCase
         foreach (['testing' => 'T6036084', 'The' => 'T60', 'quick' => 'Q503', 'brown' => 'B1908', 'fox' => 'F205', 'jumped' => 'J408106', 'over' => 'O0209', 'lazy' => 'L7050', 'dogs' => 'D6043'] as $word => $code) {
             yield 'refined_soundex '.$word => [new RefinedSoundexEncoder(), $word, $code];
         }
-        yield 'soundex Robert' => [new SoundexEncoder(), 'Robert', 'R163'];
+        // American Soundex as in Apache Commons Codec (H/W rule).
+        foreach (['Robert' => 'R163', 'Rupert' => 'R163', 'Ashcraft' => 'A261', 'Tymczak' => 'T522', 'Pfister' => 'P236', 'PHP' => 'P000', 'Honeyman' => 'H555'] as $word => $code) {
+            yield 'soundex '.$word => [new SoundexEncoder(), $word, $code];
+        }
         yield 'soundex accents' => [new SoundexEncoder(), 'Élodie', 'E430'];
         // PHP's metaphone() encodes "TH" as "0".
         yield 'metaphone Thompson' => [new MetaphoneEncoder(), 'Thompson', '0MPSN'];

@@ -6,6 +6,7 @@ namespace TokenizerEngine;
 
 use TokenizerEngine\CharacterFilter\CharacterFilterInterface;
 use TokenizerEngine\Elasticsearch\AnalysisConfig;
+use TokenizerEngine\TokenFilter\FinalOffsetAwareInterface;
 use TokenizerEngine\TokenFilter\TokenFilterInterface;
 use TokenizerEngine\Tokenizer\AbstractTokenizer;
 use TokenizerEngine\Tokenizer\TokenizerInterface;
@@ -129,10 +130,12 @@ class TokenizerEngine
      */
     public function tokens(string $text): array
     {
-        $tokens = $this->tokenizeText($this->filterCharacters($text));
+        $text = $this->filterCharacters($text);
+        $tokens = $this->tokenizeText($text);
+        $finalOffset = mb_strlen($text, 'UTF-8');
 
         foreach ($this->tokenFilters as $filter) {
-            $tokens = Tokens::normalize($filter->filter($tokens));
+            $tokens = Tokens::normalize(self::bind($filter, $finalOffset)->filter($tokens));
         }
 
         return $tokens;
@@ -172,9 +175,10 @@ class TokenizerEngine
             $tokens = [];
         }
 
+        $finalOffset = mb_strlen($text, 'UTF-8');
         foreach ($this->tokenFilters as $filter) {
             $before = Tokens::terms($tokens);
-            $tokens = Tokens::normalize($filter->filter($tokens));
+            $tokens = Tokens::normalize(self::bind($filter, $finalOffset)->filter($tokens));
             $result['tokenFilters'][$filter::class][] = ['input' => $before, 'output' => Tokens::terms($tokens)];
         }
 
@@ -221,6 +225,11 @@ class TokenizerEngine
         return $tokenizer instanceof AbstractTokenizer
             ? $tokenizer->tokenizeTokens($tokens)
             : Tokens::normalize($tokenizer->tokenize($tokens));
+    }
+
+    private static function bind(TokenFilterInterface $filter, int $finalOffset): TokenFilterInterface
+    {
+        return $filter instanceof FinalOffsetAwareInterface ? $filter->withFinalOffset($finalOffset) : $filter;
     }
 
     private static function textToken(string $text): Token

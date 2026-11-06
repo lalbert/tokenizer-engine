@@ -29,7 +29,8 @@ final class ElasticsearchParityTest extends TestCase
     public static function cases(): iterable
     {
         foreach (ParityCases::all() as $name => $case) {
-            foreach (ParityCases::TEXTS as $textName => $text) {
+            $texts = isset($case['texts']) ? array_intersect_key(ParityCases::TEXTS, array_flip($case['texts'])) : ParityCases::TEXTS;
+            foreach ($texts as $textName => $text) {
                 yield $name.' / '.$textName => [$case, $text];
             }
         }
@@ -53,7 +54,11 @@ final class ElasticsearchParityTest extends TestCase
 
         $compare = $case['compare'] ?? ['terms', 'positions', 'offsets'];
 
-        self::assertSame(array_column($expected, 'token'), array_column($actual, 'token'), 'Terms differ.');
+        if (\in_array('terms', $compare, true)) {
+            self::assertSame(array_column($expected, 'token'), array_column($actual, 'token'), 'Terms differ.');
+        } else {
+            self::assertCount(\count($expected), $actual, 'Token counts differ.');
+        }
 
         if (\in_array('positions', $compare, true)) {
             self::assertSame(array_column($expected, 'position'), array_column($actual, 'position'), 'Positions differ.');

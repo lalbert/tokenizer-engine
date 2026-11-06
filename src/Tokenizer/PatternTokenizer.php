@@ -10,8 +10,8 @@ use TokenizerEngine\Util\Text;
  * Splits text with a regular expression, like Elasticsearch's `pattern`
  * tokenizer.
  *
- * The pattern is given without delimiters and is evaluated with Unicode
- * semantics. With $group = -1 the pattern matches separators; otherwise the
+ * The pattern is given without delimiters and follows Java semantics (see
+ * Text::pattern(): \w is ASCII only unless UNICODE_CHARACTER_CLASS). With $group = -1 the pattern matches separators; otherwise the
  * given capture group is emitted for each match (0 = whole match).
  */
 final class PatternTokenizer extends AbstractTokenizer

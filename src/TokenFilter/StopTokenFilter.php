@@ -14,8 +14,10 @@ use TokenizerEngine\Util\WordList;
  * _german_, _spanish_, _italian_, _portuguese_, _dutch_ (Snowball lists)
  * or _none_.
  */
-final class StopTokenFilter extends AbstractTokenFilter
+final class StopTokenFilter extends AbstractTokenFilter implements FinalOffsetAwareInterface
 {
+    private ?int $finalOffset = null;
+
     /**
      * @var array<string, true>
      */
@@ -92,13 +94,26 @@ final class StopTokenFilter extends AbstractTokenFilter
         return array_map('strval', array_keys($this->stopWords));
     }
 
+    public function withFinalOffset(int $finalOffset): static
+    {
+        $clone = clone $this;
+        $clone->finalOffset = $finalOffset;
+
+        return $clone;
+    }
+
     protected function process(array $tokens): array
     {
         $result = [];
         $last = \count($tokens) - 1;
 
         foreach ($tokens as $i => $token) {
-            if (isset($this->stopWords[$this->normalize($token->term)]) && ($this->removeTrailing || $i !== $last)) {
+            // With removeTrailing = false, the last token is kept when the text
+            // ends right after it (the user may still be typing the word).
+            $keepTrailing = !$this->removeTrailing && $i === $last
+                && (null === $this->finalOffset || $token->endOffset === $this->finalOffset);
+
+            if (!$keepTrailing && isset($this->stopWords[$this->normalize($token->term)])) {
                 continue;
             }
             $result[] = $token;

@@ -16,8 +16,8 @@ Typical uses, without running a search cluster:
 - check offline what an Elasticsearch analyzer configuration produces.
 
 > This library is not affiliated with Elastic. It mirrors the behaviour of
-> Elasticsearch's analysis components; results can differ in edge cases
-> (see [Differences with Elasticsearch](#differences-with-elasticsearch)).
+> Elasticsearch's analysis components, and the CI checks it against real
+> Elasticsearch 8.19 and 9.5 nodes (see [Parity with Elasticsearch](#parity-with-elasticsearch)).
 
 ## Installation
 
@@ -29,8 +29,9 @@ Requirements: PHP 8.2+ and `ext-mbstring`. Recommended:
 
 - `ext-intl`, for Unicode word segmentation (UAX #29) and ASCII folding with ICU;
   a pure PHP fallback is used otherwise;
-- `wamania/php-stemmer`, for Snowball stemming and the non-French language
-  analyzers (French stemming is built in):
+- `wamania/php-stemmer`, for Snowball stemming and the German, Spanish,
+  Italian, Portuguese and Dutch analyzers (English and French stemming are
+  built in):
 
 ```bash
 composer require wamania/php-stemmer
@@ -230,7 +231,7 @@ TextChunker::byTokens(Analyzers::standard(), maxTokens: 300, overlapTokens: 50)-
 | `AsciiFoldingTokenFilter` | `asciifolding` | optional locale rules (`de`: ä → ae) |
 | `StopTokenFilter` | `stop` | `_english_`, `_french_`, `_german_`, `_spanish_`, `_italian_`, `_portuguese_`, `_dutch_` |
 | `ElisionTokenFilter` | `elision` | French articles by default, handles `’` |
-| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `light_french` / `minimal_french` (Lucene ports), Snowball otherwise |
+| `StemmerTokenFilter` | `stemmer`, `snowball`, `porter_stem` | native `english` / `porter`, `light_french`, `minimal_french` (Lucene ports), Snowball otherwise |
 | `KeywordMarkerTokenFilter` | `keyword_marker` | protects words from stemming |
 | `StemmerOverrideTokenFilter` | `stemmer_override` | |
 | `ShingleTokenFilter` | `shingle` | |
@@ -274,25 +275,41 @@ string, a list of strings or `null` to drop the token), `AbstractTokenFilter`
 to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
 `[term, offset]` pairs).
 
-## Differences with Elasticsearch
+## Parity with Elasticsearch
 
-- French stemming (`light_french`, `minimal_french`) is a port of Lucene's code
-  and gives the same stems as Elasticsearch. Other languages use the Snowball
-  algorithms, while Elasticsearch uses "light" stemmers for German, Spanish,
-  Italian and Portuguese, so stems can differ there.
-- `min_hash` uses k seeded hash functions instead of Elasticsearch's bucket
-  approach: signatures are not interchangeable with Elasticsearch's.
-- `uax_url_email` does not recognize bare domain names (`example.com`).
+`tests/Parity` sends a multilingual corpus to this library and to the
+`_analyze` API of a real Elasticsearch node (with the ICU and phonetic
+plugins), and compares terms, positions and offsets for about 80
+configurations: every built-in analyzer, tokenizer, character filter and
+token filter listed above. The CI runs it against Elasticsearch 8.19 and 9.5;
+see `tests/Parity/README.md` to run it locally.
+
+Known differences, all covered by the suite in the scope below:
+
+- Stemming for German, Spanish, Italian, Portuguese and Dutch uses the
+  Snowball algorithms, while Elasticsearch uses "light" stemmers: for these
+  analyzers only tokenization, stop words, positions and offsets match. English
+  (Porter) and French stemming are ports of Lucene's code and match exactly.
+- Phonetic encoders fold accented letters before encoding ("Élodie" gives
+  E430), whereas Elasticsearch leaves words containing them unchanged.
 - Offsets are counted in Unicode code points (Elasticsearch counts UTF-16 code
-  units) and refer to the text after character filters (Elasticsearch maps them
-  back to the original text).
-- Filters that split a token (n-grams, word delimiter, synonyms) emit
-  sub-tokens at the position of the original token instead of building a token
-  graph.
-- Regular expressions are PCRE, not Java.
-- Not implemented: normalizers, `hunspell`, Painless scripts, ICU tokenizer
-  and transforms, Beider-Morse and Double Metaphone encoders, CJK specific
-  analysis.
+  units, so they differ for characters outside the BMP, such as emoji) and
+  refer to the text after character filters (Elasticsearch maps them back to
+  the original text).
+
+Not compared (different by design or not loadable from settings):
+
+- `min_hash` uses k seeded hash functions instead of Elasticsearch's bucket
+  approach: signatures are not interchangeable.
+- `uax_url_email` does not recognize bare domain names (`example.com`).
+- Synonym graphs: multi-word synonyms are emitted as consecutive tokens, not
+  as a token graph.
+- Regular expressions are PCRE with Java semantics for `\w`, `\d`, `\s` and
+  `\b` (ASCII only unless `UNICODE_CHARACTER_CLASS` or `(?U)`); other Java
+  specific syntax may not be supported.
+- Not implemented: normalizers, `hunspell`, Painless scripts (`condition`),
+  ICU tokenizer and transforms, Beider-Morse and Double Metaphone encoders,
+  CJK specific analysis.
 
 ## Data sources and licenses
 
@@ -300,8 +317,10 @@ to work on the whole stream, and `AbstractTokenizer` for a tokenizer (yield
   Elasticsearch uses for `_english_`); other languages from the
   [Snowball project](https://snowballstem.org/) (BSD-3-Clause). See
   `resources/stop-words/`.
-- French light and minimal stemmers: ports of Apache Lucene (Apache-2.0),
-  algorithms by Jacques SAVOY (BSD); see the headers of `src/Stemmer/`.
+- Porter, French light and French minimal stemmers: ports of Apache Lucene
+  (Apache-2.0), algorithms by Martin PORTER and Jacques SAVOY (BSD); see the
+  headers of `src/Stemmer/`. Test data from Lucene (Apache-2.0) in
+  `tests/Fixtures/`.
 - Soundex2: implemented from the description published by Frédéric BROUARD
   (https://sqlpro.developpez.com/cours/soundex/), which states "copyright
   Frédéric BROUARD". The code here is an independent implementation.

@@ -11,8 +11,9 @@ use TokenizerEngine\Token;
  * transitions ("PowerShot-500" gives Power, Shot, 500), like Elasticsearch's
  * `word_delimiter` filter. Unicode aware ("ÉcoleNormale" gives École, Normale).
  *
- * Sub-tokens keep the position of the original token; their offsets are
- * narrowed to the part when the original offsets are exact.
+ * Like Elasticsearch, every part gets its own position (catenations share
+ * the position of their first part); offsets are narrowed to the part when
+ * the original offsets are exact.
  */
 final class WordDelimiterTokenFilter extends AbstractTokenFilter
 {
@@ -74,27 +75,38 @@ final class WordDelimiterTokenFilter extends AbstractTokenFilter
     protected function process(array $tokens): array
     {
         $result = [];
+        $shift = 0; // positions added by the parts of previous tokens
 
         foreach ($tokens as $token) {
+            $base = $token->position + $shift;
+
             if (isset($this->protectedWords[$token->term])) {
-                $result[] = $token;
+                $result[] = $token->with(position: $base);
                 continue;
             }
 
             $emitted = $this->delimit($token);
 
-            if ($this->preserveOriginal && !(1 === \count($emitted) && $emitted[0]->term === $token->term)) {
-                array_unshift($emitted, $token);
+            if ($this->preserveOriginal && !(1 === \count($emitted) && $emitted[0][0]->term === $token->term)) {
+                array_unshift($emitted, [$token, 0]);
             }
 
-            array_push($result, ...$emitted);
+            // Like Elasticsearch, each part gets its own position; catenated
+            // tokens share the position of the first part they contain.
+            $ranks = array_flip(array_values(array_unique(array_column($emitted, 1))));
+            foreach ($emitted as [$part, $slot]) {
+                $result[] = $part->with(position: $base + $ranks[$slot]);
+            }
+
+            // A token made only of delimiters disappears without leaving a gap.
+            $shift += \count($ranks) - 1;
         }
 
         return $result;
     }
 
     /**
-     * @return list<Token>
+     * @return list<array{0: Token, 1: int}> tokens with the index of the part they start at
      */
     private function delimit(Token $token): array
     {
@@ -104,32 +116,43 @@ final class WordDelimiterTokenFilter extends AbstractTokenFilter
             ? $token->with(term: $term, startOffset: (int) $token->startOffset + $start, endOffset: (int) $token->startOffset + $end)
             : $token->withTerm($term);
 
-        $result = [];
         $count = \count($parts);
 
-        if ($this->catenateAll && $count > 1) {
-            $result[] = $make(implode('', array_column($parts, 0)), $parts[0][1], $parts[$count - 1][2]);
+        // A token that is not split is kept as is, whatever the options.
+        if (1 === $count) {
+            return [[$make($parts[0][0], $parts[0][1], $parts[0][2]), 0]];
         }
 
-        $run = [];
+        // Runs of consecutive parts of the same type (words or numbers).
+        $runs = [];
+        $runStart = 0;
         foreach ($parts as $i => $part) {
-            [$text, $start, $end, $type] = $part;
+            if (0 === $i || $parts[$i - 1][3] !== $part[3]) {
+                $runStart = $i;
+            }
+            $runs[$runStart][] = $i;
+        }
 
+        $result = [];
+        foreach ($parts as $i => [$text, $start, $end, $type]) {
             if (self::WORD_TYPE_WORD === $type ? $this->generateWordParts : $this->generateNumberParts) {
-                $result[] = $make($text, $start, $end);
+                $result[] = [$make($text, $start, $end), $i];
             }
 
-            $run[] = $part;
-            $next = $parts[$i + 1] ?? null;
-            if (null !== $next && $next[3] === $type) {
-                continue;
-            }
-
+            $run = $runs[$i] ?? null;
             $catenate = self::WORD_TYPE_WORD === $type ? $this->catenateWords : $this->catenateNumbers;
-            if ($catenate && \count($run) > 1) {
-                $result[] = $make(implode('', array_column($run, 0)), $run[0][1], $run[\count($run) - 1][2]);
+            if (null !== $run && $catenate && \count($run) > 1) {
+                $last = $parts[$run[\count($run) - 1]];
+                $result[] = [$make(implode('', array_map(static fn (int $p): string => $parts[$p][0], $run)), $start, $last[2]), $i];
             }
-            $run = [];
+
+            if (0 === $i && $this->catenateAll && $count > 1) {
+                $all = implode('', array_column($parts, 0));
+                // Not repeated when a word or number run already covers the whole token.
+                if ([] === $result || $result[\count($result) - 1][0]->term !== $all) {
+                    $result[] = [$make($all, $start, $parts[$count - 1][2]), 0];
+                }
+            }
         }
 
         return $result;

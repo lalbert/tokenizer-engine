@@ -37,7 +37,8 @@ final class NewTokenFiltersTest extends TestCase
         $result = (new ShingleTokenFilter(outputUnigrams: false))->filter([new Token('please', 0, 0, 6), new Token('divide', 1, 7, 13), new Token('sentence', 3, 19, 27)]);
 
         self::assertSame(
-            [['please divide', 0, 0, 13], ['divide _', 1, 7, 13], ['_ sentence', 2, 19, 27]],
+            // A filler takes the start offset of the next real token, like Elasticsearch.
+            [['please divide', 0, 0, 13], ['divide _', 1, 7, 19], ['_ sentence', 2, 19, 27]],
             array_map(static fn (Token $t): array => [$t->term, $t->position, $t->startOffset, $t->endOffset], $result),
         );
     }
@@ -70,8 +71,11 @@ final class NewTokenFiltersTest extends TestCase
 
     public function testPatternCapture(): void
     {
-        self::assertSame(['abc123def456', 'abc', 'def', '123', '456'], (new PatternCaptureTokenFilter(['([a-z]+)', '(\d+)']))->filter(['abc123def456']));
-        self::assertSame(['abc', 'def', '123', '456'], (new PatternCaptureTokenFilter(['([a-z]+)', '(\d+)'], false))->filter(['abc123def456']));
+        // Captures are ordered by position in the term and duplicates are kept, like Elasticsearch.
+        self::assertSame(['abc123def456', 'abc', '123', 'def', '456'], (new PatternCaptureTokenFilter(['([a-z]+)', '(\d+)']))->filter(['abc123def456']));
+        self::assertSame(['abc', '123', 'def', '456'], (new PatternCaptureTokenFilter(['([a-z]+)', '(\d+)'], false))->filter(['abc123def456']));
+        self::assertSame(['Wi-Fi', 'i', 'i'], (new PatternCaptureTokenFilter(['(\p{Ll}+)']))->filter(['Wi-Fi']));
+        self::assertSame(['abc'], (new PatternCaptureTokenFilter(['([a-z]+)']))->filter(['abc']));
         self::assertSame(['---'], (new PatternCaptureTokenFilter(['([a-z]+)']))->filter(['---']));
     }
 
