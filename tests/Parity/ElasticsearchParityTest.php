@@ -23,6 +23,8 @@ final class ElasticsearchParityTest extends TestCase
      */
     private static ?array $plugins = null;
 
+    private static ?string $version = null;
+
     /**
      * @return iterable<string, array{array<string, mixed>, string}>
      */
@@ -60,7 +62,8 @@ final class ElasticsearchParityTest extends TestCase
             self::assertCount(\count($expected), $actual, 'Token counts differ.');
         }
 
-        if (\in_array('positions', $compare, true)) {
+        $positionsApply = !isset($case['positions_since']) || version_compare(self::version($url), (string) $case['positions_since'], '>=');
+        if (\in_array('positions', $compare, true) && $positionsApply) {
             self::assertSame(array_column($expected, 'position'), array_column($actual, 'position'), 'Positions differ.');
         }
 
@@ -103,6 +106,17 @@ final class ElasticsearchParityTest extends TestCase
 
         /** @var list<array{token: string, start_offset: int, end_offset: int, type: string, position: int}> */
         return $response['tokens'];
+    }
+
+    private static function version(string $url): string
+    {
+        if (null === self::$version) {
+            $info = self::request($url);
+            $version = \is_array($info['version'] ?? null) ? ($info['version']['number'] ?? null) : null;
+            self::$version = \is_string($version) ? $version : '0';
+        }
+
+        return self::$version;
     }
 
     /**

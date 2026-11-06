@@ -292,6 +292,8 @@ Known differences, all covered by the suite in the scope below:
   (Porter) and French stemming are ports of Lucene's code and match exactly.
 - Phonetic encoders fold accented letters before encoding ("Élodie" gives
   E430), whereas Elasticsearch leaves words containing them unchanged.
+- `path_hierarchy` increments positions like Elasticsearch 9; Elasticsearch 8
+  puts every level at position 0.
 - Offsets are counted in Unicode code points (Elasticsearch counts UTF-16 code
   units, so they differ for characters outside the BMP, such as emoji) and
   refer to the text after character filters (Elasticsearch maps them back to

@@ -11,8 +11,9 @@ namespace TokenizerEngine\Tests\Parity;
  * custom analyzer ('tokenizer', 'char_filter', 'filter'), exactly as sent to
  * Elasticsearch. 'compare' restricts what is compared (default: terms,
  * positions, offsets) and 'texts' the texts used; every restriction must be
- * explained in 'reason' and documented in the README ("Differences with
- * Elasticsearch").
+ * explained in 'reason' and documented in the README ("Parity with
+ * Elasticsearch"). 'positions_since' compares positions only from that
+ * Elasticsearch version on (behaviour changed between major versions).
  */
 final class ParityCases
 {
@@ -38,6 +39,10 @@ final class ParityCases
         $snowball = [
             'compare' => ['positions', 'offsets'],
             'reason' => 'Snowball stemmer here, "light" stemmer in Elasticsearch: tokenization and stop words are compared, not stems.',
+        ];
+        $pathPositions = [
+            'positions_since' => '9.0.0',
+            'reason' => 'Elasticsearch 8 puts every level at position 0; Elasticsearch 9 (and this library) increments positions.',
         ];
         $phonetic = [
             'plugin' => 'analysis-phonetic',
@@ -74,9 +79,9 @@ final class ParityCases
             'tokenizer uax_url_email' => ['tokenizer' => 'uax_url_email'],
             'tokenizer ngram' => ['tokenizer' => ['type' => 'ngram', 'min_gram' => 2, 'max_gram' => 3, 'token_chars' => ['letter', 'digit']]],
             'tokenizer edge_ngram' => ['tokenizer' => ['type' => 'edge_ngram', 'min_gram' => 1, 'max_gram' => 4, 'token_chars' => ['letter']]],
-            'tokenizer path_hierarchy' => ['tokenizer' => 'path_hierarchy'],
-            'tokenizer path_hierarchy reverse' => ['tokenizer' => ['type' => 'path_hierarchy', 'reverse' => true]],
-            'tokenizer path_hierarchy skip' => ['tokenizer' => ['type' => 'path_hierarchy', 'skip' => 1]],
+            'tokenizer path_hierarchy' => ['tokenizer' => 'path_hierarchy'] + $pathPositions,
+            'tokenizer path_hierarchy reverse' => ['tokenizer' => ['type' => 'path_hierarchy', 'reverse' => true]] + $pathPositions,
+            'tokenizer path_hierarchy skip' => ['tokenizer' => ['type' => 'path_hierarchy', 'skip' => 1]] + $pathPositions,
             'tokenizer char_group' => ['tokenizer' => ['type' => 'char_group', 'tokenize_on_chars' => ['whitespace', '-', 'punctuation']]],
 
             // Character filters
