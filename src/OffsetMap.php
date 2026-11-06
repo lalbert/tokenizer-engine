@@ -133,7 +133,7 @@ final class OffsetMap
             }
         }
 
-        return -1 === $found ? 0 : $this->diffs[$found];
+        return $this->diffs[$found] ?? 0;
     }
 
     private function withoutMarkup(): self
