@@ -1,0 +1,57 @@
+name: Release
+
+# Publishes a GitHub release when a version tag (1.2.3, 1.2.3-rc.1...) is
+# pushed. The notes are the CHANGELOG.md section of that version, prepared
+# beforehand with .github/scripts/prepare-release.sh. Packagist picks the tag
+# up through its GitHub hook.
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master \
+            || { echo "::error::Tag $tag is not on master."; exit 1; }
+          .github/scripts/changelog-section.sh "$tag" > /dev/null
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - name: Run tests
+        run: vendor/bin/phpunit
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          .github/scripts/changelog-section.sh "$tag" \
+            | sed -E "s#\]\(([A-Za-z0-9_./-]+\.md)\)#](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${tag}/\1)#g" \
+            > notes.md
+          cat >> notes.md <<NOTES
+
+          Full changelog: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${tag}/CHANGELOG.md
+          NOTES
+          prerelease=""
+          case "$tag" in *-*) prerelease="--prerelease" ;; esac
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release edit "$tag" --notes-file notes.md
+          else
+            gh release create "$tag" --verify-tag --title "$tag" --notes-file notes.md $prerelease
+          fi
